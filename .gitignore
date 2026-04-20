@@ -1,0 +1,43 @@
+# Env
+.env
+.env.local
+.env.*.local
+
+# Keys / Wallets (NEVER commit)
+keys/
+*.json.key
+id.json
+mto-signer.json
+
+# Node
+node_modules/
+dist/
+.turbo/
+.next/
+out/
+
+# Rust / Anchor
+target/
+**/.anchor/
+programs/.anchor/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Expo / React Native
+.expo/
+android/
+ios/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Prisma
+prisma/*.db
+
+# Misc
+.vercel
+.railway
