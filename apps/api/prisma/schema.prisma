@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Transfer {
+  id                String         @id @default(cuid())
+  transferId        BigInt         @unique
+  senderPubkey      String
+  senderCountry     String?
+  amountUsdc        BigInt
+  amountNpr         BigInt
+  recipientPhone    String
+  recipientHash     String
+  lockedRate        BigInt
+  feeBps            Int
+  status            TransferStatus @default(INITIATED)
+  solanaTxSignature String?        @unique
+  mtoReference      String?
+  createdAt         DateTime       @default(now())
+  initiatedAt       DateTime?
+  disbursedAt       DateTime?
+  settledAt         DateTime?
+
+  @@index([senderPubkey])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum TransferStatus {
+  INITIATED
+  DISBURSED
+  SETTLED
+  FAILED
+  CANCELLED
+}
+
+model LiquidityProvider {
+  id             String   @id @default(cuid())
+  pubkey         String   @unique
+  totalDeposited BigInt   @default(0)
+  totalWithdrawn BigInt   @default(0)
+  lpTokens       BigInt   @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model LPTransaction {
+  id          String   @id @default(cuid())
+  lpPubkey    String
+  type        LPTxType
+  amount      BigInt
+  txSignature String   @unique
+  createdAt   DateTime @default(now())
+
+  @@index([lpPubkey])
+}
+
+enum LPTxType {
+  DEPOSIT
+  WITHDRAW
+  YIELD_CLAIM
+}
+
+model VaultState {
+  id             String   @id @default("singleton")
+  totalLiquidity BigInt   @default(0)
+  activeAdvances BigInt   @default(0)
+  utilizationBps Int      @default(0)
+  currentAprBps  Int      @default(1200)
+  totalYieldPaid BigInt   @default(0)
+  updatedAt      DateTime @updatedAt
+}
+
+model RateSnapshot {
+  id            String   @id @default(cuid())
+  usdcToNprRate BigInt
+  pythPrice     BigInt
+  recordedAt    DateTime @default(now())
+
+  @@index([recordedAt])
+}
+
+model WebhookLog {
+  id        String   @id @default(cuid())
+  source    String
+  payload   Json
+  processed Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
