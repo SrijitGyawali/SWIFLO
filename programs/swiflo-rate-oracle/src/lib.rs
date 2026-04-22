@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("REPLACE_WITH_DEPLOYED_PROGRAM_ID");
+declare_id!("3Zy46BADoCvhCad3xp1wHwiXMytbEAwy73E5G5mfvSUV");
 
 // 133.5 NPR per USD, scaled 10^6
 const DEFAULT_NPR_PER_USD: u64 = 133_500_000;
