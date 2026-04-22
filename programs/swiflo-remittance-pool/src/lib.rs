@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
-declare_id!("REPLACE_WITH_DEPLOYED_PROGRAM_ID");
+declare_id!("6M9yzRSkn5c94dAvE8v9YJMGyoqHQKEurDTrM8AerQ56");
 
 #[program]
 pub mod swiflo_remittance_pool {
