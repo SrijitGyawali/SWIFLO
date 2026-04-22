@@ -3,9 +3,9 @@ seeds = false
 skip-lint = false
 
 [programs.devnet]
-swiflo_remittance_pool = "REPLACE_AFTER_DEPLOY"
-swiflo_liquidity_vault = "REPLACE_AFTER_DEPLOY"
-swiflo_rate_oracle     = "REPLACE_AFTER_DEPLOY"
+swiflo_remittance_pool = "6M9yzRSkn5c94dAvE8v9YJMGyoqHQKEurDTrM8AerQ56"
+swiflo_liquidity_vault = "EqjvuWUyH9A1iz3voRpN58MErsB2e7D4fa5S1LWpsgKa"
+swiflo_rate_oracle     = "3Zy46BADoCvhCad3xp1wHwiXMytbEAwy73E5G5mfvSUV"
 
 [registry]
 url = "https://api.apr.dev"
