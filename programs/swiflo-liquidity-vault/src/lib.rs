@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, MintTo, Burn, Token, TokenAccount, Transfer};
 
-declare_id!("REPLACE_WITH_DEPLOYED_PROGRAM_ID");
+declare_id!("EqjvuWUyH9A1iz3voRpN58MErsB2e7D4fa5S1LWpsgKa");
 
 const BASE_APR_BPS: u64 = 800;      // 8% base
 const MAX_APR_BPS: u64 = 2000;      // 20% max
