@@ -12,12 +12,13 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1",
+    "@fastify/cors": "^9.0.1",
+    "@fastify/helmet": "^11.1.1",
     "@prisma/client": "^5.14.0",
+    "@privy-io/server-auth": "^1.32.5",
     "@solana/web3.js": "^1.95.0",
     "@swiflo/shared": "workspace:*",
     "fastify": "^4.28.0",
-    "@fastify/cors": "^9.0.1",
-    "@fastify/helmet": "^11.1.1",
     "node-cron": "^3.0.3",
     "zod": "^3.23.8"
   },
