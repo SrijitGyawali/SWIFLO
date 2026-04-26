@@ -10,7 +10,7 @@ export const REMITTANCE_POOL_IDL_ADDRESS = 'Ftm8BBErHvX9ibV1kK7jCsfkqRRYDm8GX5PX
 export const LIQUIDITY_VAULT_IDL_ADDRESS  = '8gNdDFZZ4r9o5deTjrsFwNVy3iKr7hrW7tGGKKv1nCSS'
 export const RATE_ORACLE_IDL_ADDRESS      = '9jRxKWV12kFYxwrF2trCrJt3XhNzwND6pjYQU1BW9neF'
 
-// USDC mint on Devnet
+// Standard devnet dummy USDC from spl-token-faucet.com — faucet wallet is pre-funded, no mint authority needed
 export const USDC_MINT = new PublicKey('Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr')
 
 // NPR/USD rate — admin-updatable, hard-coded for hackathon (133.5 NPR per USD, scaled 10^6)

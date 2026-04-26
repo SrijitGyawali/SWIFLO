@@ -136,6 +136,7 @@ export function Navbar() {
       </Link>
       <div className="flex items-center gap-6">
         <Link href="/explorer" className="text-muted hover:text-txt text-sm transition-colors">Explorer</Link>
+        <Link href="/fund" className="text-muted hover:text-txt text-sm transition-colors">Get USDC</Link>
         <Link href="/send" className="text-muted hover:text-txt text-sm transition-colors">Send</Link>
         <Link href="/lp" className="text-muted hover:text-txt text-sm transition-colors">Earn</Link>
         {ready && (
