@@ -8,10 +8,16 @@ export function startSettlementScheduler(): void {
   cron.schedule('*/10 * * * * *', async () => {
     const cutoff = new Date(Date.now() - SETTLEMENT_DELAY_SECONDS * 1000)
 
-    const pending = await prisma.transfer.findMany({
-      where: { status: 'DISBURSED', disbursedAt: { lte: cutoff } },
-      take: 10,
-    })
+    let pending: Awaited<ReturnType<typeof prisma.transfer.findMany>>
+    try {
+      pending = await prisma.transfer.findMany({
+        where: { status: 'DISBURSED', disbursedAt: { lte: cutoff } },
+        take: 10,
+      })
+    } catch {
+      // DB not reachable — skip this tick silently
+      return
+    }
 
     for (const transfer of pending) {
       try {
