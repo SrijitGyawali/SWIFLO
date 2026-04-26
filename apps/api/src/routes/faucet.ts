@@ -7,13 +7,18 @@ import {
 } from '@solana/web3.js'
 import {
   getOrCreateAssociatedTokenAccount,
-  mintTo,
+  transfer,
 } from '@solana/spl-token'
 import fs from 'fs'
 
 const AIRDROP_SOL   = 0.1 * LAMPORTS_PER_SOL
 const FAUCET_USDC   = 100_000_000  // 100 USDC (6 decimals)
 const RATE_LIMIT_MS = 60_000       // one request per wallet per minute
+
+// Standard devnet dummy USDC — pre-fund faucet ATA before demo
+const TEST_USDC_MINT = new PublicKey(
+  process.env.TEST_USDC_MINT ?? 'Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr'
+)
 
 const recentRequests = new Map<string, number>()
 
@@ -54,26 +59,35 @@ export const faucetRoutes: FastifyPluginAsync = async (app) => {
         'confirmed'
       )
       const faucet = loadFaucetKeypair()
-      const usdcMint = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU')
 
       // 1. Airdrop SOL for fees
       try {
         const sig = await connection.requestAirdrop(userPubkey, AIRDROP_SOL)
         await connection.confirmTransaction(sig, 'confirmed')
-      } catch (e) {
+      } catch {
         app.log.warn('SOL airdrop failed (devnet rate limit?) — continuing')
       }
 
-      // 2. Get/create user USDC associated token account (faucet pays rent)
+      // 2. Get/create user USDC ATA (faucet pays rent)
       const userAta = await getOrCreateAssociatedTokenAccount(
-        connection, faucet, usdcMint, userPubkey
+        connection, faucet, TEST_USDC_MINT, userPubkey
       )
 
-      // 3. Mint 100 USDC directly to user — faucet keypair is mint authority
-      const txSignature = await mintTo(
+      // 3. Get faucet USDC ATA and check balance
+      const faucetAta = await getOrCreateAssociatedTokenAccount(
+        connection, faucet, TEST_USDC_MINT, faucet.publicKey
+      )
+      const faucetBalance = Number(faucetAta.amount)
+      if (faucetBalance < FAUCET_USDC) {
+        app.log.error({ faucetBalance }, 'Faucet USDC balance too low')
+        return reply.code(503).send({ error: 'Faucet is empty — contact the demo operator' })
+      }
+
+      // 4. Transfer 100 USDC from faucet ATA to user ATA
+      const txSignature = await transfer(
         connection,
         faucet,
-        usdcMint,
+        faucetAta.address,
         userAta.address,
         faucet.publicKey,
         FAUCET_USDC
