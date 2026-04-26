@@ -9,6 +9,7 @@ import { lpRoutes } from './routes/lp'
 import { webhookRoutes } from './routes/webhooks'
 import { rateRoutes } from './routes/rate'
 import { explorerRoutes } from './routes/explorer'
+import { faucetRoutes } from './routes/faucet'
 import { startSettlementScheduler } from './services/settler'
 
 const app = Fastify({ logger: true })
@@ -25,6 +26,7 @@ async function main() {
   await app.register(webhookRoutes)
   await app.register(rateRoutes)
   await app.register(explorerRoutes)
+  await app.register(faucetRoutes)
 
   startSettlementScheduler()
 
