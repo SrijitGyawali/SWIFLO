@@ -1,0 +1,331 @@
+{
+  "address": "AxbYcPE2L99uruyDN9RcsTpwui4JUvVGMsT1nupVazLC",
+  "metadata": {
+    "name": "swiflo_rate_oracle",
+    "version": "0.1.0",
+    "spec": "0.1.0"
+  },
+  "instructions": [
+    {
+      "name": "initialize_oracle",
+      "discriminator": [
+        144,
+        223,
+        131,
+        120,
+        196,
+        253,
+        181,
+        99
+      ],
+      "accounts": [
+        {
+          "name": "oracle",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "lock_rate",
+      "discriminator": [
+        112,
+        75,
+        49,
+        165,
+        214,
+        20,
+        114,
+        241
+      ],
+      "accounts": [
+        {
+          "name": "oracle",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "locked_rate",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  99,
+                  107,
+                  101,
+                  100,
+                  95,
+                  114,
+                  97,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "transfer_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "requester",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "transfer_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "update_rate",
+      "discriminator": [
+        24,
+        225,
+        53,
+        189,
+        72,
+        212,
+        225,
+        178
+      ],
+      "accounts": [
+        {
+          "name": "oracle",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "oracle"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "npr_per_usd",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "LockedRate",
+      "discriminator": [
+        119,
+        13,
+        116,
+        191,
+        243,
+        148,
+        238,
+        42
+      ]
+    },
+    {
+      "name": "OracleState",
+      "discriminator": [
+        97,
+        156,
+        157,
+        189,
+        194,
+        73,
+        8,
+        15
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "RateLocked",
+      "discriminator": [
+        138,
+        79,
+        247,
+        245,
+        107,
+        139,
+        50,
+        137
+      ]
+    },
+    {
+      "name": "RateUpdated",
+      "discriminator": [
+        215,
+        212,
+        25,
+        235,
+        152,
+        203,
+        38,
+        205
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidRate",
+      "msg": "Invalid rate value"
+    },
+    {
+      "code": 6001,
+      "name": "StaleRate",
+      "msg": "Rate is stale — update before locking"
+    }
+  ],
+  "types": [
+    {
+      "name": "LockedRate",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "transfer_id",
+            "type": "u64"
+          },
+          {
+            "name": "npr_per_usd",
+            "type": "u64"
+          },
+          {
+            "name": "locked_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OracleState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "npr_per_usd",
+            "type": "u64"
+          },
+          {
+            "name": "last_updated",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RateLocked",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "transfer_id",
+            "type": "u64"
+          },
+          {
+            "name": "npr_per_usd",
+            "type": "u64"
+          },
+          {
+            "name": "locked_at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RateUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "npr_per_usd",
+            "type": "u64"
+          },
+          {
+            "name": "updated_at",
+            "type": "i64"
+          }
+        ]
+      }
+    }
+  ]
+}
