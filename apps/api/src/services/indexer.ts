@@ -25,22 +25,23 @@ export async function handleHeliusWebhook(payload: HeliusWebhookPayload): Promis
 }
 
 export async function handleTransferInitiated(
-  event: TransferInitiatedEvent,
+  event: TransferInitiatedEvent & { recipientPhone?: string },
   signature: string
-): Promise<void> {
+): Promise<{ id: string }> {
   const npr_rate = BigInt(event.lockedRate)    // scaled 10^6
   const usdc_amount = BigInt(event.amountUsdc) // scaled 10^6
   const amountNpr = (usdc_amount * npr_rate) / BigInt(1_000_000)
 
+  const phone = event.recipientPhone ?? 'PENDING'
   const transfer = await prisma.transfer.upsert({
     where: { transferId: BigInt(event.transferId) },
-    update: { solanaTxSignature: signature, initiatedAt: new Date() },
+    update: { solanaTxSignature: signature, initiatedAt: new Date(), recipientPhone: phone },
     create: {
       transferId: BigInt(event.transferId),
       senderPubkey: event.sender,
       amountUsdc: BigInt(event.amountUsdc),
       amountNpr,
-      recipientPhone: 'PENDING',      // revealed by mobile app separately
+      recipientPhone: phone,
       recipientHash: event.recipientHash,
       lockedRate: BigInt(event.lockedRate),
       feeBps: 40,
@@ -50,13 +51,17 @@ export async function handleTransferInitiated(
     },
   })
 
-  // Fire-and-forget MTO notification
-  notifyMTO({
-    transferId: transfer.id,
-    recipientPhone: transfer.recipientPhone,
-    amountNpr: transfer.amountNpr.toString(),
-    amountUsdc: transfer.amountUsdc.toString(),
-    lockedRate: transfer.lockedRate.toString(),
-    reference: transfer.id,
-  }).catch(err => console.error('[indexer] MTO notify failed', err))
+  // Fire-and-forget MTO notification (only when phone is known)
+  if (phone !== 'PENDING') {
+    notifyMTO({
+      transferId: transfer.id,
+      recipientPhone: transfer.recipientPhone,
+      amountNpr: transfer.amountNpr.toString(),
+      amountUsdc: transfer.amountUsdc.toString(),
+      lockedRate: transfer.lockedRate.toString(),
+      reference: transfer.id,
+    }).catch(err => console.error('[indexer] MTO notify failed', err))
+  }
+
+  return { id: transfer.id }
 }

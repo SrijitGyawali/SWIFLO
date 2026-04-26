@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { prisma } from '../lib/prisma'
 import { handleHeliusWebhook, handleTransferInitiated } from '../services/indexer'
+import { requireAuth } from '../middleware/auth'
 import type { HeliusWebhookPayload, MtoWebhookPayload } from '@swiflo/shared'
 
 export const webhookRoutes: FastifyPluginAsync = async (app) => {
@@ -55,9 +56,8 @@ export const webhookRoutes: FastifyPluginAsync = async (app) => {
     return { ok: true }
   })
 
-  // POST /api/webhooks/transfer-initiated — called directly by mobile app
-  // after on-chain tx confirm, supplies recipient phone (off-chain privacy)
-  app.post('/api/webhooks/transfer-initiated', async (req, reply) => {
+  // POST /api/webhooks/transfer-initiated — called by web/mobile after on-chain tx confirm
+  app.post('/api/webhooks/transfer-initiated', { preHandler: requireAuth }, async (req) => {
     const body = req.body as {
       transferId: string
       recipientPhone: string
@@ -67,23 +67,18 @@ export const webhookRoutes: FastifyPluginAsync = async (app) => {
       senderPubkey: string
     }
 
-    await handleTransferInitiated(
+    const { id } = await handleTransferInitiated(
       {
         transferId: body.transferId,
         sender: body.senderPubkey,
         amountUsdc: body.amountUsdc,
         recipientHash: '',
         lockedRate: body.lockedRate,
+        recipientPhone: body.recipientPhone,
       },
       body.solanaTxSignature
     )
 
-    // Update recipient phone (stored off-chain for privacy)
-    await prisma.transfer.updateMany({
-      where: { transferId: BigInt(body.transferId) },
-      data: { recipientPhone: body.recipientPhone },
-    })
-
-    return { ok: true }
+    return { ok: true, transferId: id }
   })
 }
