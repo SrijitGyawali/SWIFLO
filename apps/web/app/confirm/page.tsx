@@ -3,8 +3,57 @@
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Suspense, useState } from 'react'
 import { usePrivy, useSolanaWallets } from '@privy-io/react-auth'
+import {
+  Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction,
+} from '@solana/web3.js'
+import { getAssociatedTokenAddress, TOKEN_PROGRAM_ID } from '@solana/spl-token'
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+const API       = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+const RPC       = process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? 'https://api.devnet.solana.com'
+const USDC_MINT = process.env.NEXT_PUBLIC_USDC_MINT ?? '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
+const POOL_PROGRAM_ID = process.env.NEXT_PUBLIC_REMITTANCE_POOL_PROGRAM_ID
+  ?? 'GKWPTDkKS2jDrE3gkWWoTtbHnwaiqZwc8iM47QGsJ9mJ'
+const POOL_USDC = process.env.NEXT_PUBLIC_POOL_USDC ?? ''
+
+// Discriminator from apps/web/idl/swiflo_remittance_pool.json
+const INITIATE_TRANSFER_DISC = Buffer.from([128, 229, 77, 5, 65, 234, 228, 75])
+
+// Pool account layout offsets (Anchor discriminator = 8 bytes)
+// authority(32) + mto_authority(32) + fee_bps(2) = 74 → total_transfers u64
+const POOL_TOTAL_TRANSFERS_OFFSET = 74
+
+function buildInitiateTransferIx(
+  programId: PublicKey,
+  poolPda: PublicKey,
+  transferPda: PublicKey,
+  sender: PublicKey,
+  senderUsdc: PublicKey,
+  poolUsdc: PublicKey,
+  amountUsdc: bigint,
+  recipientHash: Uint8Array,
+  lockedRate: bigint,
+): TransactionInstruction {
+  // data = discriminator(8) + amount_usdc(8) + recipient_hash(32) + locked_rate(8)
+  const data = Buffer.alloc(56)
+  INITIATE_TRANSFER_DISC.copy(data, 0)
+  data.writeBigUInt64LE(amountUsdc, 8)
+  Buffer.from(recipientHash).copy(data, 16)
+  data.writeBigUInt64LE(lockedRate, 48)
+
+  return new TransactionInstruction({
+    programId,
+    data,
+    keys: [
+      { pubkey: poolPda,            isSigner: false, isWritable: true  },
+      { pubkey: transferPda,        isSigner: false, isWritable: true  },
+      { pubkey: sender,             isSigner: true,  isWritable: true  },
+      { pubkey: senderUsdc,         isSigner: false, isWritable: true  },
+      { pubkey: poolUsdc,           isSigner: false, isWritable: true  },
+      { pubkey: TOKEN_PROGRAM_ID,   isSigner: false, isWritable: false },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+  })
+}
 
 function ConfirmContent() {
   const params = useSearchParams()
@@ -12,16 +61,16 @@ function ConfirmContent() {
   const { getAccessToken } = usePrivy()
   const { wallets } = useSolanaWallets()
 
-  const amountUsdc = params.get('amountUsdc') ?? '0'
-  const phone = params.get('phone') ?? ''
-  const lockedRate = parseFloat(params.get('lockedRate') ?? '133.5')
+  const amountUsdc      = params.get('amountUsdc') ?? '0'
+  const phone           = params.get('phone') ?? ''
+  const lockedRate      = parseFloat(params.get('lockedRate') ?? '133.5')
   const recipientGetsNpr = parseInt(params.get('recipientGetsNpr') ?? '0')
-  const savingsNpr = parseInt(params.get('savingsNpr') ?? '0')
+  const savingsNpr      = parseInt(params.get('savingsNpr') ?? '0')
 
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [error,   setError]   = useState('')
 
-  const usdcNum = parseFloat(amountUsdc)
+  const usdcNum  = parseFloat(amountUsdc)
   const nprGross = Math.round(usdcNum * lockedRate)
   const swifloFee = Math.round(nprGross * 0.004)
 
@@ -29,11 +78,59 @@ function ConfirmContent() {
     setLoading(true)
     setError('')
     try {
-      const token = await getAccessToken()
+      const token  = await getAccessToken()
       const wallet = wallets[0]
-      if (!wallet) throw new Error('No Solana wallet found')
+      if (!wallet)    throw new Error('No Solana wallet found. Please log in again.')
+      if (!POOL_USDC) throw new Error('NEXT_PUBLIC_POOL_USDC is not configured.')
 
-      // Notify backend — for demo this triggers the full flow
+      const connection  = new Connection(RPC, 'confirmed')
+      const programId   = new PublicKey(POOL_PROGRAM_ID)
+      const senderPubkey = new PublicKey(wallet.address)
+      const usdcMint    = new PublicKey(USDC_MINT)
+      const poolUsdc    = new PublicKey(POOL_USDC)
+
+      // Derive pool PDA  seeds = [b"pool"]
+      const [poolPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('pool')],
+        programId,
+      )
+
+      // Read pool account to get current total_transfers (used as transfer PDA seed)
+      const poolInfo = await connection.getAccountInfo(poolPda)
+      if (!poolInfo) throw new Error('Remittance pool not found on devnet. Has it been initialized?')
+      const totalTransfers = poolInfo.data.readBigUInt64LE(POOL_TOTAL_TRANSFERS_OFFSET)
+
+      // Derive transfer PDA  seeds = [b"transfer", total_transfers as le64]
+      const seqBuf = Buffer.alloc(8)
+      seqBuf.writeBigUInt64LE(totalTransfers)
+      const [transferPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('transfer'), seqBuf],
+        programId,
+      )
+
+      // Sender's USDC ATA
+      const senderUsdc = await getAssociatedTokenAddress(usdcMint, senderPubkey)
+
+      const amountLamports = BigInt(Math.round(usdcNum * 1_000_000))
+      const lockedRateScaled = BigInt(Math.round(lockedRate * 1_000_000))
+      const recipientHash  = new Uint8Array(32) // zero hash — phone kept off-chain
+
+      const ix = buildInitiateTransferIx(
+        programId, poolPda, transferPda,
+        senderPubkey, senderUsdc, poolUsdc,
+        amountLamports, recipientHash, lockedRateScaled,
+      )
+
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+      const tx = new Transaction()
+      tx.recentBlockhash = blockhash
+      tx.feePayer = senderPubkey
+      tx.add(ix)
+
+      const signature = await wallet.sendTransaction(tx, connection)
+      await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
+
+      // Notify backend with the on-chain transfer_id and real signature
       const res = await fetch(`${API}/api/webhooks/transfer-initiated`, {
         method: 'POST',
         headers: {
@@ -41,17 +138,22 @@ function ConfirmContent() {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          transferId: String(Date.now()),
-          recipientPhone: phone,
-          amountUsdc: String(Math.round(usdcNum * 1_000_000)),
-          lockedRate: String(Math.round(lockedRate * 1_000_000)),
-          solanaTxSignature: `DEMO_${Date.now()}`,
-          senderPubkey: wallet.address,
+          transferId:         totalTransfers.toString(),
+          recipientPhone:     phone,
+          amountUsdc:         amountLamports.toString(),
+          lockedRate:         lockedRateScaled.toString(),
+          solanaTxSignature:  signature,
+          senderPubkey:       wallet.address,
         }),
       })
       const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Backend error')
+
       const id = data.transferId ?? 'demo'
-      router.push(`/processing/${id}?savingsNpr=${savingsNpr}&amountUsdc=${amountUsdc}&amountNpr=${recipientGetsNpr}&phone=${encodeURIComponent(phone)}`)
+      router.push(
+        `/processing/${id}?savingsNpr=${savingsNpr}&amountUsdc=${amountUsdc}` +
+        `&amountNpr=${recipientGetsNpr}&phone=${encodeURIComponent(phone)}`,
+      )
     } catch (err: any) {
       setError(err.message ?? 'Transaction failed. Please try again.')
     } finally {
@@ -112,9 +214,11 @@ function ConfirmContent() {
         disabled={loading}
         className="w-full bg-accent hover:bg-accent/90 disabled:opacity-50 text-white font-bold py-4 rounded-xl text-lg transition-colors"
       >
-        {loading ? 'Confirming...' : 'Confirm & send →'}
+        {loading ? 'Confirming on-chain...' : 'Confirm & send →'}
       </button>
-      <p className="text-dim text-xs text-center mt-4">Rate locked · Powered by Solana Devnet</p>
+      <p className="text-dim text-xs text-center mt-4">
+        Calls <code>initiate_transfer</code> on Solana Devnet · Rate locked
+      </p>
     </div>
   )
 }
