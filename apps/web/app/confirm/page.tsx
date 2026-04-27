@@ -168,7 +168,7 @@ function ConfirmContent() {
       </button>
 
       <h1 className="text-3xl font-extrabold text-txt mb-2">Confirm transfer</h1>
-      <p className="text-muted mb-8">Sending {amountUsdc} USDC → {phone}</p>
+      <p className="text-muted mb-8">Sending {amountUsdc} SWI → {phone}</p>
 
       {/* Comparison */}
       <div className="space-y-3 mb-8">
@@ -195,7 +195,7 @@ function ConfirmContent() {
       <div className="bg-surface rounded-xl border border-border p-4 mb-6 space-y-2 text-sm">
         <div className="flex justify-between">
           <span className="text-muted">Locked rate</span>
-          <span className="text-txt">1 USDC = Rs {lockedRate.toFixed(2)}</span>
+          <span className="text-txt">1 SWI = Rs {lockedRate.toFixed(2)}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-muted">Swiflo fee (0.4%)</span>
