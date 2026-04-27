@@ -1,0 +1,7 @@
+{
+  "name": "SWI",
+  "symbol": "SWI",
+  "description": "SWIFLO stablecoin — instant cross-border remittance on Solana",
+  "image": "https://raw.githubusercontent.com/SrijitGyawali/SWIFLO/main/apps/web/public/swi-logo.png",
+  "decimals": 6
+}
