@@ -12,7 +12,7 @@ type TokenHolding = {
 }
 
 const SOLANA_RPC = process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? 'https://api.devnet.solana.com'
-const USDC_MINT = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
+const SWI_MINT = '2Mfg6KX5hthtYnX8vAyqXreJtrYbxot5pbEzcyMpZGZx'
 const connection = new Connection(SOLANA_RPC, 'confirmed')
 
 async function fetchTokenHoldings(address: string): Promise<TokenHolding[]> {
@@ -45,12 +45,12 @@ async function fetchUSDCBalance(address: string): Promise<number> {
     ? (parsedAccount.value.data as any).parsed?.info
     : null
 
-  if (parsedInfo?.mint === USDC_MINT && parsedInfo?.tokenAmount) {
+  if (parsedInfo?.mint === SWI_MINT && parsedInfo?.tokenAmount) {
     return Number(parsedInfo.tokenAmount.uiAmount ?? parsedInfo.tokenAmount.amount / 10 ** parsedInfo.tokenAmount.decimals)
   }
 
   const accounts = await connection.getParsedTokenAccountsByOwner(pubkey, {
-    mint: new PublicKey(USDC_MINT),
+    mint: new PublicKey(SWI_MINT),
   }, 'confirmed')
 
   return accounts.value.reduce((sum, entry) => {
@@ -136,7 +136,7 @@ export function Navbar() {
       </Link>
       <div className="flex items-center gap-6">
         <Link href="/explorer" className="text-muted hover:text-txt text-sm transition-colors">Explorer</Link>
-        <Link href="/fund" className="text-muted hover:text-txt text-sm transition-colors">Get USDC</Link>
+        <Link href="/fund" className="text-muted hover:text-txt text-sm transition-colors">Get SWI</Link>
         <Link href="/send" className="text-muted hover:text-txt text-sm transition-colors">Send</Link>
         <Link href="/lp" className="text-muted hover:text-txt text-sm transition-colors">Earn</Link>
         {ready && (
@@ -182,8 +182,8 @@ export function Navbar() {
                           <p className="text-sm font-bold text-txt">{nativeBalance === null ? '—' : `${nativeBalance.toFixed(4)} SOL`}</p>
                         </div>
                         <div className="rounded-xl bg-surface2 border border-border px-3 py-2">
-                          <p className="text-xs text-dim uppercase tracking-wide mb-1">USDC</p>
-                          <p className="text-sm font-bold text-txt">{usdcBalance === null ? '—' : `${usdcBalance.toFixed(2)} USDC`}</p>
+                          <p className="text-xs text-dim uppercase tracking-wide mb-1">SWI</p>
+                          <p className="text-sm font-bold text-txt">{usdcBalance === null ? '—' : `${usdcBalance.toFixed(2)} SWI`}</p>
                         </div>
                       </div>
 
@@ -195,7 +195,7 @@ export function Navbar() {
                           holdings.map((holding) => (
                             <div key={holding.mint} className="flex items-center justify-between gap-4 rounded-xl bg-surface2 border border-border px-3 py-2 mb-2 last:mb-0">
                               <div className="min-w-0">
-                                <p className="text-sm font-semibold text-txt truncate">{holding.mint === USDC_MINT ? 'USDC' : `${holding.mint.slice(0, 6)}...${holding.mint.slice(-6)}`}</p>
+                                <p className="text-sm font-semibold text-txt truncate">{holding.mint === SWI_MINT ? 'SWI' : `${holding.mint.slice(0, 6)}...${holding.mint.slice(-6)}`}</p>
                                 <p className="text-xs text-dim font-mono truncate">{holding.mint}</p>
                               </div>
                               <p className="text-sm font-bold text-txt whitespace-nowrap">{holding.amount}</p>
