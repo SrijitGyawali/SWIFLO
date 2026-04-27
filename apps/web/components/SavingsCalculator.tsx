@@ -1,23 +1,47 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
-const NPR_PER_USDC = 133.5
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+
+function useLiveRate() {
+  const [nprPerUsd, setNprPerUsd] = useState(133.5)
+  const [source, setSource]       = useState('loading')
+
+  useEffect(() => {
+    const load = () =>
+      fetch(`${API}/api/rates`)
+        .then(r => r.json())
+        .then(d => { setNprPerUsd(d.nprPerUsd); setSource(d.source) })
+        .catch(() => setSource('fallback'))
+
+    load()
+    const id = setInterval(load, 30_000)
+    return () => clearInterval(id)
+  }, [])
+
+  return { nprPerUsd, source }
+}
 
 export function SavingsCalculator() {
   const [nprAmount, setNprAmount] = useState(20000)
+  const { nprPerUsd, source }     = useLiveRate()
 
-  const usdc = (nprAmount / NPR_PER_USDC).toFixed(2)
-  const swifloFee = Math.round(nprAmount * 0.004)
-  const wuFee = Math.round(nprAmount * 0.06)
+  const usdc          = (nprAmount / nprPerUsd).toFixed(2)
+  const swifloFee     = Math.round(nprAmount * 0.004)
+  const wuFee         = Math.round(nprAmount * 0.06)
   const swifloReceives = nprAmount - swifloFee
-  const wuReceives = nprAmount - wuFee
-  const savings = swifloReceives - wuReceives
+  const wuReceives    = nprAmount - wuFee
+  const savings       = swifloReceives - wuReceives
 
   return (
     <section className="py-16">
       <h2 className="text-3xl font-bold text-txt mb-2 text-center">Calculate your savings</h2>
-      <p className="text-muted text-center mb-10">Move the slider to see how much you save</p>
+      <p className="text-muted text-center mb-2">Move the slider to see how much you save</p>
+      <p className="text-center text-xs text-dim mb-10">
+        <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle ${source === 'loading' ? 'bg-dim' : 'bg-success'}`} />
+        Live rate: 1 USD = Rs {nprPerUsd.toFixed(2)} · via {source} · refreshes every 30s
+      </p>
 
       <div className="bg-surface rounded-2xl p-8 border border-border max-w-2xl mx-auto">
         <div className="mb-8">
