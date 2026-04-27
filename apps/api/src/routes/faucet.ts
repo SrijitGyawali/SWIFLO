@@ -12,8 +12,7 @@ import {
 import fs from 'fs'
 
 const AIRDROP_SOL   = 0.1 * LAMPORTS_PER_SOL
-const FAUCET_USDC   = 100_000_000  // 100 USDC (6 decimals)
-const RATE_LIMIT_MS = 60_000       // one request per wallet per minute
+const RATE_LIMIT_MS = 60_000
 
 // Standard devnet dummy USDC — pre-fund faucet ATA before demo
 const TEST_USDC_MINT = new PublicKey(
@@ -23,18 +22,20 @@ const TEST_USDC_MINT = new PublicKey(
 const recentRequests = new Map<string, number>()
 
 function loadFaucetKeypair(): Keypair {
+  if (process.env.FAUCET_SECRET_KEY) {
+    return Keypair.fromSecretKey(Buffer.from(JSON.parse(process.env.FAUCET_SECRET_KEY)))
+  }
   const path = process.env.ANCHOR_WALLET ?? `${process.env.HOME}/.config/solana/id.json`
   if (!fs.existsSync(path)) return Keypair.generate()
-  return Keypair.fromSecretKey(
-    Buffer.from(JSON.parse(fs.readFileSync(path, 'utf-8')))
-  )
+  return Keypair.fromSecretKey(Buffer.from(JSON.parse(fs.readFileSync(path, 'utf-8'))))
 }
 
 export const faucetRoutes: FastifyPluginAsync = async (app) => {
-  app.post<{ Body: { walletAddress: string } }>(
+  app.post<{ Body: { walletAddress: string; amount?: number } }>(
     '/api/faucet',
     async (req, reply) => {
-      const { walletAddress } = req.body
+      const { walletAddress, amount = 100 } = req.body
+      const swiAmount = Math.round(amount * 1_000_000)
 
       if (!walletAddress) {
         return reply.code(400).send({ error: 'walletAddress required' })
@@ -78,24 +79,24 @@ export const faucetRoutes: FastifyPluginAsync = async (app) => {
         connection, faucet, TEST_USDC_MINT, faucet.publicKey
       )
       const faucetBalance = Number(faucetAta.amount)
-      if (faucetBalance < FAUCET_USDC) {
-        app.log.error({ faucetBalance }, 'Faucet USDC balance too low')
+      if (faucetBalance < swiAmount) {
+        app.log.error({ faucetBalance }, 'Faucet SWI balance too low')
         return reply.code(503).send({ error: 'Faucet is empty — contact the demo operator' })
       }
 
-      // 4. Transfer 100 USDC from faucet ATA to user ATA
+      // 4. Transfer SWI from faucet ATA to user ATA
       const txSignature = await transfer(
         connection,
         faucet,
         faucetAta.address,
         userAta.address,
         faucet.publicKey,
-        FAUCET_USDC
+        swiAmount
       )
 
       return {
         success: true,
-        usdcReceived: 100,
+        swiReceived: amount,
         solReceived: 0.1,
         txSignature,
         explorerUrl: `https://explorer.solana.com/tx/${txSignature}?cluster=devnet`,
