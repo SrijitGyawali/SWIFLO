@@ -60,7 +60,7 @@ export default function SendPage() {
 
       {/* Amount */}
       <div className="mb-6">
-        <label className="text-dim text-xs uppercase tracking-wide block mb-2">Amount (USDC)</label>
+        <label className="text-dim text-xs uppercase tracking-wide block mb-2">Amount (SWI)</label>
         <div className="bg-surface rounded-xl border border-border px-4 py-3 flex items-center gap-3">
           <input
             type="number"
@@ -69,7 +69,7 @@ export default function SendPage() {
             onChange={e => setAmountUsdc(e.target.value)}
             className="flex-1 bg-transparent text-txt text-3xl font-bold outline-none placeholder-dim"
           />
-          <span className="text-muted text-sm font-semibold bg-surface2 px-3 py-1 rounded-lg">USDC</span>
+          <span className="text-muted text-sm font-semibold bg-surface2 px-3 py-1 rounded-lg">SWI</span>
         </div>
         {usdcNum > 0 && (
           <p className="text-muted text-sm mt-2">≈ Rs {nprEquiv.toLocaleString('en-IN')} NPR</p>
