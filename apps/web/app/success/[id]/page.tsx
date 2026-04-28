@@ -1,7 +1,9 @@
 'use client'
 
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
-import { Suspense } from 'react'
+import { Suspense, useEffect, useState } from 'react'
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 function SuccessContent() {
   const { id } = useParams<{ id: string }>()
@@ -11,7 +13,24 @@ function SuccessContent() {
   const amountNpr = parseInt(params.get('amountNpr') ?? '0')
   const phone = params.get('phone') ?? ''
 
-  const explorerUrl = `https://explorer.solana.com/tx/${id}?cluster=devnet`
+  const [signature, setSignature] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`${API}/api/transfers/${id}`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled) setSignature(data.solanaTxSignature ?? null)
+      } catch {}
+    })()
+    return () => { cancelled = true }
+  }, [id])
+
+  const explorerUrl = signature
+    ? `https://explorer.solana.com/tx/${signature}?cluster=devnet`
+    : undefined
 
   return (
     <div className="max-w-lg mx-auto px-6 py-16 text-center">
@@ -34,14 +53,18 @@ function SuccessContent() {
         ))}
       </div>
 
-      <a
-        href={explorerUrl}
-        target="_blank"
-        rel="noreferrer"
-        className="text-accent text-sm hover:underline block mb-8"
-      >
-        View on Solana Explorer ↗
-      </a>
+      {explorerUrl ? (
+        <a
+          href={explorerUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="text-accent text-sm hover:underline block mb-8"
+        >
+          View on Solana Explorer ↗
+        </a>
+      ) : (
+        <p className="text-muted text-sm mb-8">Transaction details are propagating — check the explorer shortly.</p>
+      )}
 
       <button
         onClick={() => router.push('/')}
