@@ -2,7 +2,7 @@
 
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Suspense, useState } from 'react'
-import { usePrivy, useSolanaWallets } from '@privy-io/react-auth'
+import { useSolanaWallets } from '@privy-io/react-auth'
 import {
   Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction,
 } from '@solana/web3.js'
@@ -58,7 +58,6 @@ function buildInitiateTransferIx(
 function ConfirmContent() {
   const params = useSearchParams()
   const router = useRouter()
-  const { getAccessToken } = usePrivy()
   const { wallets } = useSolanaWallets()
 
   const amountUsdc      = params.get('amountUsdc') ?? '0'
@@ -78,7 +77,6 @@ function ConfirmContent() {
     setLoading(true)
     setError('')
     try {
-      const token  = await getAccessToken()
       const wallet = wallets[0]
       if (!wallet)    throw new Error('No Solana wallet found. Please log in again.')
       if (!POOL_USDC) throw new Error('NEXT_PUBLIC_POOL_USDC is not configured.')
@@ -135,7 +133,6 @@ function ConfirmContent() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           transferId:         totalTransfers.toString(),
