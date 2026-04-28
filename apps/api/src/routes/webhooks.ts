@@ -1,7 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { prisma } from '../lib/prisma'
 import { handleHeliusWebhook, handleTransferInitiated } from '../services/indexer'
-import { requireAuth } from '../middleware/auth'
 import type { HeliusWebhookPayload, MtoWebhookPayload } from '@swiflo/shared'
 
 export const webhookRoutes: FastifyPluginAsync = async (app) => {
@@ -57,7 +56,7 @@ export const webhookRoutes: FastifyPluginAsync = async (app) => {
   })
 
   // POST /api/webhooks/transfer-initiated — called by web/mobile after on-chain tx confirm
-  app.post('/api/webhooks/transfer-initiated', { preHandler: requireAuth }, async (req) => {
+  app.post('/api/webhooks/transfer-initiated', async (req) => {
     const body = req.body as {
       transferId: string
       recipientPhone: string
