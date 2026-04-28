@@ -324,7 +324,7 @@ lpPosition
 | Backend | Fastify + TypeScript |
 | ORM | Prisma |
 | Database | Supabase (PostgreSQL) |
-| Frontend | Next.js 14 (App Router) + Tailwind CSS |
+| Frontend | Next.js 15 (App Router) + Tailwind CSS |
 | Mobile | Expo (React Native) |
 | Monorepo | pnpm workspaces + Turborepo |
 | Infra | Docker Compose |
@@ -339,8 +339,8 @@ lpPosition
 
 ```bash
 # Clone the repo
-git clone https://github.com/swrifgjayali/swiflo.git
-cd swiflo
+git clone https://github.com/SrijitGyawali/SWIFLO.git
+cd SWIFLO
 
 # Copy and fill in your env vars
 cp .env.example .env
@@ -422,9 +422,10 @@ pnpm --filter @swiflo/web dev
 # Anyone can request test tokens
 curl -X POST http://localhost:3001/api/faucet \
   -H 'Content-Type: application/json' \
-  -d '{"wallet": "YourSolanaWalletAddressHere", "amount": 100}'
+  -d '{"walletAddress": "YourSolanaWalletAddressHere", "amount": 100}'
 
-# Response: { "signature": "5xK3...", "amount": 100 }
+# Response:
+# { "success": true, "swiReceived": 100, "solReceived": 0.1, "txSignature": "5xK3...", "explorerUrl": "https://explorer.solana.com/tx/5xK3...?cluster=devnet" }
 ```
 
 The faucet transfers SWI tokens (test USDC) from the faucet wallet. Default is 100 SWI per request.
