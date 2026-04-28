@@ -103,7 +103,7 @@ export default function SendPage() {
         <span className="text-dim text-xs">
           {rateLoading
             ? 'Fetching live rate…'
-            : `1 USDC = Rs ${nprPerUsd.toFixed(2)} · via ${rate?.source ?? 'live'} · updates every 30s`}
+            : `1 SWI = Rs ${nprPerUsd.toFixed(2)} · via ${rate?.source ?? 'live'} · updates every 30s`}
         </span>
       </div>
 
