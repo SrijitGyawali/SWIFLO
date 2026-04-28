@@ -1,20 +1,15 @@
-FROM node:20-alpine
+FROM node:20-slim
 
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@9 --activate
 
 WORKDIR /app
 
-# Copy workspace manifests first (layer-cache friendly)
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY packages/shared/package.json            packages/shared/package.json
-COPY apps/api/package.json                   apps/api/package.json
+# Copy entire monorepo (node_modules excluded via .dockerignore)
+COPY . .
 
-# Install all workspace deps
-RUN pnpm install --frozen-lockfile
-
-# Copy source
-COPY packages/shared/  packages/shared/
-COPY apps/api/         apps/api/
+# Install all workspace deps with flat node_modules
+RUN pnpm install --shamefully-hoist
 
 # Generate Prisma client
 RUN pnpm --filter @swiflo/api db:generate
