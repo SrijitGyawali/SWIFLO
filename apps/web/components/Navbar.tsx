@@ -62,7 +62,7 @@ async function fetchUSDCBalance(address: string): Promise<number> {
 
 export function Navbar() {
   const { ready, authenticated, login, logout } = usePrivy()
-  const { wallets } = useSolanaWallets()
+  const { wallets, createWallet } = useSolanaWallets()
   const [copied, setCopied] = useState(false)
   const [holdingsOpen, setHoldingsOpen] = useState(false)
   const [holdingsLoading, setHoldingsLoading] = useState(false)
@@ -70,6 +70,27 @@ export function Navbar() {
   const [holdings, setHoldings] = useState<TokenHolding[]>([])
   const [nativeBalance, setNativeBalance] = useState<number | null>(null)
   const [usdcBalance, setUsdcBalance] = useState<number | null>(null)
+
+  useEffect(() => {
+    console.debug('Navbar state', { ready, authenticated, walletsLength: wallets.length })
+    if (!ready) return
+    if (!authenticated) return
+    if (wallets.length > 0) return
+    createWallet().catch((err: any) => {
+      // Privy returns an error if the user already has an embedded wallet on the server
+      // — this can race with the client-side wallet list being populated. Ignore it.
+      const msg = String(err?.message ?? err)
+      if (msg.includes('User already has an embedded wallet')) {
+        console.debug('Navbar: createWallet skipped — embedded wallet already exists')
+        return
+      }
+      console.error('Navbar createWallet failed', err)
+    })
+  }, [authenticated, wallets.length])
+
+  useEffect(() => {
+    console.debug('Navbar wallets changed', { ready, authenticated, walletsLength: wallets.length, address: wallets[0]?.address })
+  }, [ready, authenticated, wallets.length])
 
   const address = wallets[0]?.address
 
