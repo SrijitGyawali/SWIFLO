@@ -60,7 +60,7 @@ export default function FundPage() {
         </div>
       )}
 
-      {/* Option 1 — Test USDC faucet (primary demo path) */}
+      {/* Option 1 — Test SWI faucet (primary demo path) */}
       <div className="mb-4">
         <div className="flex items-center gap-2 mb-3">
           <span className="bg-accent text-white text-xs font-bold px-2 py-0.5 rounded-full">DEMO</span>
