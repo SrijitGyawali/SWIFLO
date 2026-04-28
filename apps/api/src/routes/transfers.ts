@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma'
+import { getLiveNprPerUsd, calculateAmounts } from '../services/rateService'
 
 const estimateBody = z.object({ amountUsdc: z.number().positive() })
 
@@ -29,31 +30,21 @@ function serializeTransfer(t: any) {
 
 export const transferRoutes: FastifyPluginAsync = async (app) => {
   // POST /api/transfers/estimate
-  app.post('/api/transfers/estimate', async (req, reply) => {
+  app.post('/api/transfers/estimate', async (req) => {
     const { amountUsdc } = estimateBody.parse(req.body)
-
-    const latestRate = await prisma.rateSnapshot.findFirst({
-      orderBy: { recordedAt: 'desc' },
-    })
-    const nprPerUsdc = latestRate
-      ? Number(latestRate.usdcToNprRate) / 1_000_000
-      : 133.5
-
-    const amountNpr = amountUsdc * nprPerUsdc
-    const swifloFeeNpr = amountNpr * 0.004
-    const wuFeeNpr = amountNpr * 0.06
-    const recipientGetsNpr = amountNpr - swifloFeeNpr
-    const wuRecipientGetsNpr = amountNpr - wuFeeNpr
+    const { rate, source } = await getLiveNprPerUsd()
+    const calc = calculateAmounts(amountUsdc, rate)
 
     return {
       amountUsdc,
-      lockedRate: nprPerUsdc,
-      amountNpr: Math.round(amountNpr),
-      swifloFeeNpr: Math.round(swifloFeeNpr),
-      recipientGetsNpr: Math.round(recipientGetsNpr),
-      wuRecipientGetsNpr: Math.round(wuRecipientGetsNpr),
-      savingsNpr: Math.round(recipientGetsNpr - wuRecipientGetsNpr),
-      savingsPercent: Number(((recipientGetsNpr - wuRecipientGetsNpr) / amountNpr * 100).toFixed(2)),
+      lockedRate:          rate,
+      source,
+      amountNpr:           calc.grossNpr,
+      swifloFeeUsdc:       calc.swifloFeeUsdc,
+      recipientGetsNpr:    calc.swifloNpr,
+      wuRecipientGetsNpr:  calc.wuNpr,
+      savingsNpr:          calc.savingsNpr,
+      savingsPercent:      Number((calc.savingsNpr / calc.grossNpr * 100).toFixed(2)),
     }
   })
 

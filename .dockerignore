@@ -1,0 +1,11 @@
+node_modules
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/*.tsbuildinfo
+.git
+.gitignore
+apps/api/keys
+apps/api/.env
+apps/web/.env
