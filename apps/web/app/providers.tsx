@@ -15,6 +15,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
         loginMethods: ['email', 'sms', 'wallet'],
         embeddedWallets: {
           solana: { createOnLogin: 'all-users' },
+          showWalletUIs: false,
+          noPromptOnSignature: true,
         },
         externalWallets: {
           solana: { connectors: toSolanaWalletConnectors() },
