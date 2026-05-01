@@ -29,7 +29,7 @@ async function fetchUsdcUsdFromPyth(): Promise<number> {
 // ── ExchangeRate-API: get USD/NPR ──────────────────────────────────────────
 async function fetchUsdNprFromExchangeApi(): Promise<number> {
   const res  = await fetch('https://api.exchangerate-api.com/v4/latest/USD', { signal: AbortSignal.timeout(5000) })
-  const data = await res.json()
+  const data: any = await res.json()
   const rate = data?.rates?.NPR
   if (!rate || typeof rate !== 'number') throw new Error('ExchangeRate-API: missing NPR rate')
   return rate
@@ -41,7 +41,7 @@ async function fetchFromCoinGecko(): Promise<number> {
     'https://api.coingecko.com/api/v3/simple/price?ids=usd-coin&vs_currencies=npr',
     { signal: AbortSignal.timeout(5000) }
   )
-  const data = await res.json()
+  const data: any = await res.json()
   const rate = data?.['usd-coin']?.npr
   if (!rate || typeof rate !== 'number') throw new Error('CoinGecko: missing rate')
   return rate
