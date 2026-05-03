@@ -172,6 +172,16 @@ export default function LpPage() {
       const tx = new Transaction()
       tx.recentBlockhash = blockhash
       tx.feePayer = userPubkey
+
+      // Ensure user's SWI ATA exists (some wallets reject txs that would require ATA creation)
+      const swiInfo = await connection.getAccountInfo(userSwi)
+      if (!swiInfo) {
+        tx.add(createAssociatedTokenAccountInstruction(
+          userPubkey, userSwi, userPubkey, SWI_MINT,
+          TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
+        ))
+      }
+
       tx.add(buildClaimIx(vaultPda, userPubkey, userSwi, userLpAta, lpTokensRaw))
 
       const sig = await wallet.sendTransaction(tx, connection)
@@ -268,7 +278,13 @@ export default function LpPage() {
             {loading === 'withdraw' ? 'Withdrawing…' : 'Withdraw'}
           </button>
         </div>
-        <p className="text-dim text-xs mt-2">Burns LP tokens · returns SWI to your wallet</p>
+        {stats && (
+          <p className="text-dim text-xs mt-2">
+            Available: {((Number(stats.totalLiquidity) - Number(stats.activeAdvances)) / 1_000_000).toFixed(2)} SWI
+            {Number(stats.activeAdvances) > 0 && ` (${(Number(stats.activeAdvances) / 1_000_000).toFixed(2)} SWI locked)`}
+          </p>
+        )}
+        <p className="text-dim text-xs mt-1">Burns LP tokens · returns SWI to your wallet</p>
       </div>
     </div>
   )
