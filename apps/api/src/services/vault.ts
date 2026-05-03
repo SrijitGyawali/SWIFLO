@@ -14,14 +14,48 @@ const POOL_PROGRAM_ID      = new PublicKey(process.env.REMITTANCE_POOL_PROGRAM_I
 const SWI_MINT             = new PublicKey(process.env.TEST_USDC_MINT ?? '2Mfg6KX5hthtYnX8vAyqXreJtrYbxot5pbEzcyMpZGZx')
 const VAULT_SWI            = new PublicKey(process.env.VAULT_SWI ?? '3QpTAYX47hVjeL8WG7R8VoF5QncwZnA6ak4jEPUiDBtw')
 const POOL_SWI             = new PublicKey(process.env.NEXT_PUBLIC_POOL_USDC ?? '8TrLtU1frZ8xmp8oJPmht3xwsuT2CqJzWjo3wbAW9JK3')
+const POOL_USDC            = new PublicKey(process.env.NEXT_PUBLIC_POOL_USDC ?? 'GUeZbdxzqCj2N5epH5vsV2pwYJWrCtoUozBNXdhgmtdf')
+const USDC_MINT            = new PublicKey(process.env.USDC_MINT ?? process.env.TEST_USDC_MINT ?? '2Mfg6KX5hthtYnX8vAyqXreJtrYbxot5pbEzcyMpZGZx')
 
 // SHA256("global:advance_to_mto")[0:8]
 const ADVANCE_DISC = Buffer.from([109, 215, 229, 111, 172, 161, 73, 69])
 
 // SHA256("global:settle_transfer")[0:8]
 const SETTLE_DISC  = Buffer.from([198, 182, 245, 201, 195, 254, 31, 253])
+// SHA256("global:replenish_vault")[0:8]
+const REPLENISH_DISC = Buffer.from([48, 138, 218, 141, 185, 137, 201, 137])
 
 const connection = new Connection(RPC, 'confirmed')
+
+const TRANSFER_STATUS_OFFSET = 96
+
+type OnChainTransferStatus = 'INITIATED' | 'DISBURSED' | 'SETTLED' | 'CANCELLED' | 'MISSING'
+
+export async function getOnChainTransferStatus(transferId: bigint): Promise<OnChainTransferStatus> {
+  const seqBuf = Buffer.alloc(8)
+  seqBuf.writeBigUInt64LE(transferId)
+  const [transferPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from('transfer'), seqBuf],
+    POOL_PROGRAM_ID
+  )
+
+  const account = await connection.getAccountInfo(transferPda)
+  if (!account) return 'MISSING'
+
+  const statusByte = account.data[TRANSFER_STATUS_OFFSET]
+  switch (statusByte) {
+    case 0:
+      return 'INITIATED'
+    case 1:
+      return 'DISBURSED'
+    case 2:
+      return 'SETTLED'
+    case 3:
+      return 'CANCELLED'
+    default:
+      return 'MISSING'
+  }
+}
 
 function loadAuthorityKeypair(): Keypair {
   const raw = process.env.FAUCET_SECRET_KEY
@@ -102,5 +136,35 @@ export async function settleTransfer(onChainTransferId: bigint): Promise<string>
 
   const sig = await sendAndConfirmTransaction(connection, new Transaction().add(ix), [authority], { commitment: 'confirmed' })
   console.log(`[vault] settle_transfer tx: ${sig}`)
+  return sig
+}
+
+export async function replenishVault(transferId: bigint, amount: number): Promise<string> {
+  // Call pool program's replenish_vault, which uses pool PDA to transfer SWI back to vault
+
+  const authority = loadAuthorityKeypair()
+
+  const [poolPda] = PublicKey.findProgramAddressSync([Buffer.from('pool')], POOL_PROGRAM_ID)
+
+  // replenish_vault data: discriminator(8) + transfer_id u64 LE(8) + amount u64 LE(8)
+  const data = Buffer.alloc(24)
+  REPLENISH_DISC.copy(data, 0)
+  data.writeBigUInt64LE(transferId, 8)
+  data.writeBigUInt64LE(BigInt(amount), 16)
+
+  const ix = new TransactionInstruction({
+    programId: POOL_PROGRAM_ID,
+    data,
+    keys: [
+      { pubkey: poolPda,       isSigner: false, isWritable: false },
+      { pubkey: POOL_SWI,      isSigner: false, isWritable: true  },
+      { pubkey: VAULT_SWI,           isSigner: false, isWritable: true  },
+      { pubkey: TOKEN_PROGRAM_ID,    isSigner: false, isWritable: false },
+    ],
+  })
+
+  // The instruction is PDA-signed on-chain, but the transaction still needs a fee payer.
+  const sig = await sendAndConfirmTransaction(connection, new Transaction().add(ix), [authority], { commitment: 'confirmed' })
+  console.log(`[vault] replenish_vault tx: ${sig}`)
   return sig
 }
