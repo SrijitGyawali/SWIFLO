@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma'
 import { notifyMTO } from './mto'
+import { advanceToMTO } from './vault'
 import type { HeliusWebhookPayload } from '@swiflo/shared'
 
 interface TransferInitiatedEvent {
@@ -51,16 +52,21 @@ export async function handleTransferInitiated(
     },
   })
 
-  // Fire-and-forget MTO notification (only when phone is known)
+  // Fire-and-forget: advance SWI to MTO wallet then notify MTO to disburse
   if (phone !== 'PENDING') {
-    notifyMTO({
-      transferId: transfer.id,
-      recipientPhone: transfer.recipientPhone,
-      amountNpr: transfer.amountNpr.toString(),
-      amountUsdc: transfer.amountUsdc.toString(),
-      lockedRate: transfer.lockedRate.toString(),
-      reference: transfer.id,
-    }).catch(err => console.error('[indexer] MTO notify failed', err))
+    const run = async () => {
+      await advanceToMTO(transfer.transferId, transfer.amountUsdc)
+      await notifyMTO({
+        transferId: transfer.id,
+        onChainTransferId: transfer.transferId.toString(),
+        recipientPhone: transfer.recipientPhone,
+        amountNpr: transfer.amountNpr.toString(),
+        amountUsdc: transfer.amountUsdc.toString(),
+        lockedRate: transfer.lockedRate.toString(),
+        reference: transfer.id,
+      })
+    }
+    run().catch(err => console.error('[indexer] advance+notify failed', err))
   }
 
   return { id: transfer.id }
