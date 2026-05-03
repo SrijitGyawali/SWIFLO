@@ -33,7 +33,8 @@ async function main() {
       reference: string
     }
 
-    console.log(`[mto] Received disburse request — transfer ${transferId}, ${amountNpr} NPR → ${recipientPhone}`)
+    const displayNpr = (Number(amountNpr) / 1_000_000).toFixed(3)
+    console.log(`[mto] Received disburse request — transfer ${transferId}, ${displayNpr} NPR → ${recipientPhone}`)
 
     // Step 1: Call mock eSewa API
     const esewaResp = await mockEsewaCredit({
