@@ -159,23 +159,6 @@ export default function LpPage() {
     setError(''); setSuccess('')
     const amt = parseFloat(withdrawAmt)
     if (!wallet || isNaN(amt) || amt <= 0) return
-
-    // Pre-flight: check vault has enough liquid SWI before sending on-chain
-    if (stats) {
-      const availableRaw = Number(stats.totalLiquidity) - Number(stats.activeAdvances)
-      const requestedRaw = Math.round(amt * 1_000_000)
-      if (requestedRaw > availableRaw) {
-        const availableSWI = Math.max(0, availableRaw / 1_000_000)
-        const lockedSWI    = (Number(stats.activeAdvances) / 1_000_000).toFixed(2)
-        if (availableSWI <= 0) {
-          setError(`No SWI is available right now — ${lockedSWI} SWI is fully locked in active remittances. Wait for settlements to complete.`)
-        } else {
-          setError(`Vault only has ${availableSWI.toFixed(2)} SWI available — ${lockedSWI} SWI is locked in active remittances. Withdraw up to ${availableSWI.toFixed(2)} SWI.`)
-        }
-        return
-      }
-    }
-
     setLoading('withdraw')
     try {
       const connection = new Connection(RPC, 'confirmed')
@@ -206,14 +189,7 @@ export default function LpPage() {
       setSuccess(`Withdrew ${amt} SWI — tx: ${sig.slice(0, 16)}…`)
       setWithdrawAmt('')
     } catch (e: any) {
-      const msg: string = e.message ?? ''
-      if (msg.includes('insufficient funds') || msg.includes('0x1') || msg.includes('custom program error: 0x1')) {
-        setError('Vault has insufficient liquidity to fulfil this withdrawal. Funds may still be locked in active remittances — try again after settlements complete.')
-      } else if (msg.includes('insufficient lamports') || msg.includes('not enough SOL')) {
-        setError('Your wallet does not have enough SOL to pay the transaction fee.')
-      } else {
-        setError(msg || 'Withdraw failed')
-      }
+      setError(e.message ?? 'Withdraw failed')
     } finally {
       setLoading(null)
     }
