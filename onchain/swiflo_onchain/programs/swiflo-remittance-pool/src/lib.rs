@@ -142,8 +142,66 @@ pub mod swiflo_remittance_pool {
 
         Ok(())
     }
+
+    pub fn replenish_vault(
+        ctx: Context<ReplenishVault>,
+        transfer_id: u64,
+        amount: u64,
+    ) -> Result<()> {
+        require!(amount > 0, SwifloError::InvalidAmount);
+
+        let bump = ctx.accounts.pool.bump;
+        let seeds = &[b"pool".as_ref(), &[bump]];
+        let signer = &[&seeds[..]];
+
+        // Pool PDA transfers SWI back to vault
+        let cpi_accounts = Transfer {
+            from: ctx.accounts.pool_swi.to_account_info(),
+            to: ctx.accounts.vault_swi.to_account_info(),
+            authority: ctx.accounts.pool.to_account_info(),
+        };
+        token::transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                cpi_accounts,
+                signer,
+            ),
+            amount,
+        )?;
+
+        emit!(VaultReplenished {
+            transfer_id,
+            amount_swi: amount,
+        });
+
+        Ok(())
+    }
+
 }
 
+
+#[derive(Accounts)]
+pub struct ReplenishVault<'info> {
+    #[account(
+        seeds = [b"pool"],
+        bump = pool.bump,
+    )]
+    pub pool: Account<'info, Pool>,
+
+    #[account(mut)]
+    pub pool_swi: Account<'info, TokenAccount>,
+
+    #[account(mut)]
+    pub vault_swi: Account<'info, TokenAccount>,
+
+    pub token_program: Program<'info, Token>,
+}
+
+#[event]
+pub struct VaultReplenished {
+    pub transfer_id: u64,
+    pub amount_swi: u64,
+}
 // ─── Accounts ────────────────────────────────────────────────────────────────
 
 #[derive(Accounts)]
