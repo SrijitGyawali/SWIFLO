@@ -18,11 +18,17 @@ const PROGRAM_ID = new PublicKey(
 const CONFIRM_DISC = Buffer.from([157, 26, 17, 151, 82, 205, 12, 37])
 
 export function loadMtoKeypair(): Keypair {
+  if (process.env.MTO_SECRET_KEY) {
+    return Keypair.fromSecretKey(Buffer.from(JSON.parse(process.env.MTO_SECRET_KEY)))
+  }
+
   const path = process.env.MTO_SIGNING_KEYPAIR_PATH ?? './keys/mto-signer.json'
   if (!fs.existsSync(path)) {
-    console.warn(`[mto] Keypair not found at ${path} — generating ephemeral keypair for dev`)
-    return Keypair.generate()
+    throw new Error(
+      `[mto] Keypair not found at ${path}. Set MTO_SECRET_KEY or provide MTO_SIGNING_KEYPAIR_PATH.`
+    )
   }
+
   return Keypair.fromSecretKey(Buffer.from(JSON.parse(fs.readFileSync(path, 'utf-8'))))
 }
 
