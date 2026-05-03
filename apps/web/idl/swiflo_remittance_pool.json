@@ -349,6 +349,51 @@
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "update_mto_authority",
+      "discriminator": [
+        76,
+        181,
+        103,
+        179,
+        34,
+        208,
+        46,
+        169
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "pool"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "new_mto_authority",
+          "type": "pubkey"
+        }
+      ]
     }
   ],
   "accounts": [
