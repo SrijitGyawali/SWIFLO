@@ -24,6 +24,11 @@ pub mod swiflo_remittance_pool {
         Ok(())
     }
 
+    pub fn update_mto_authority(ctx: Context<AdminOnly>, new_mto_authority: Pubkey) -> Result<()> {
+        ctx.accounts.pool.mto_authority = new_mto_authority;
+        Ok(())
+    }
+
     pub fn initiate_transfer(
         ctx: Context<InitiateTransfer>,
         amount_usdc: u64,
