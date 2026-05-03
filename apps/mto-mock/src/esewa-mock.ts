@@ -14,7 +14,8 @@ export async function mockEsewaCredit(params: {
   // Simulate eSewa API latency
   await new Promise(r => setTimeout(r, 800 + Math.random() * 400))
 
-  console.log(`[esewa-mock] Crediting ${params.amountNpr} NPR → ${params.phone}`)
+  const displayNpr = (Number(params.amountNpr) / 1_000_000).toFixed(3)
+  console.log(`[esewa-mock] Crediting ${displayNpr} NPR → ${params.phone}`)
 
   return {
     txRef: `ESEWA-MOCK-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
