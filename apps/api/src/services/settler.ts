@@ -54,15 +54,19 @@ export function startSettlementScheduler(): void {
           console.error(`[settler] replenish_vault failed for ${transfer.transferId}`, err)
         }
 
-        // Only after on-chain success, update DB and decrement vaultState using BigInt
+        // Only after on-chain success, update DB and decrement vaultState using BigInt.
+        // activeAdvances reflects what was actually advanced (fee-deducted amount).
         await prisma.transfer.update({
           where: { id: transfer.id },
           data: { status: 'SETTLED', settledAt: new Date() },
         })
 
+        const feeBps = BigInt(transfer.feeBps ?? 40)
+        const advanceAmountUsdc = (BigInt(transfer.amountUsdc) * (10_000n - feeBps)) / 10_000n
+
         await prisma.vaultState.upsert({
           where: { id: 'singleton' },
-          update: { activeAdvances: { decrement: BigInt(transfer.amountUsdc) } },
+          update: { activeAdvances: { decrement: advanceAmountUsdc } },
           create: {
             totalLiquidity: BigInt(0),
             activeAdvances: BigInt(0),
