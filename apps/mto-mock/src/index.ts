@@ -16,6 +16,7 @@ async function main() {
   app.post('/api/mto/disburse', async (req, reply) => {
     const {
       transferId,
+      onChainTransferId,
       recipientPhone,
       amountNpr,
       amountUsdc,
@@ -23,6 +24,7 @@ async function main() {
       reference,
     } = req.body as {
       transferId: string
+      onChainTransferId: string
       recipientPhone: string
       amountNpr: string
       amountUsdc: string
@@ -47,7 +49,7 @@ async function main() {
     console.log(`[mto] eSewa credited — ref: ${esewaResp.txRef}`)
 
     // Step 2: Sign confirmDisbursement on Solana
-    const solanaSig = await confirmDisbursementOnChain(transferId, esewaResp.txRef, mtoKeypair)
+    const solanaSig = await confirmDisbursementOnChain(onChainTransferId, esewaResp.txRef, mtoKeypair)
 
     // Step 3: Notify backend API
     await notifyBackend(transferId, 'DISBURSED', esewaResp.txRef, solanaSig)
