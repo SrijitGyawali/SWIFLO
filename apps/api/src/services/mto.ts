@@ -2,6 +2,7 @@ const MTO_URL = process.env.MTO_MOCK_URL ?? 'http://localhost:3002'
 
 export async function notifyMTO(params: {
   transferId: string
+  onChainTransferId: string
   recipientPhone: string
   amountNpr: string
   amountUsdc: string
