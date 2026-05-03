@@ -52,16 +52,22 @@ export async function handleTransferInitiated(
     },
   })
 
-  // Fire-and-forget: advance SWI to MTO wallet then notify MTO to disburse
+  // Fire-and-forget: advance fee-deducted USDC to MTO, then notify MTO to disburse.
+  // The pool escrow holds the full amount and returns it all to the vault on settlement,
+  // so the vault nets the 0.4% fee as yield for LPs.
   if (phone !== 'PENDING') {
     const run = async () => {
-      await advanceToMTO(transfer.transferId, transfer.amountUsdc)
+      const feeBps = BigInt(transfer.feeBps)
+      const advanceAmountUsdc = (transfer.amountUsdc * (10_000n - feeBps)) / 10_000n
+      const advanceAmountNpr = (advanceAmountUsdc * transfer.lockedRate) / 1_000_000n
+
+      await advanceToMTO(transfer.transferId, advanceAmountUsdc)
       await notifyMTO({
         transferId: transfer.id,
         onChainTransferId: transfer.transferId.toString(),
         recipientPhone: transfer.recipientPhone,
-        amountNpr: transfer.amountNpr.toString(),
-        amountUsdc: transfer.amountUsdc.toString(),
+        amountNpr: advanceAmountNpr.toString(),
+        amountUsdc: advanceAmountUsdc.toString(),
         lockedRate: transfer.lockedRate.toString(),
         reference: transfer.id,
       })
