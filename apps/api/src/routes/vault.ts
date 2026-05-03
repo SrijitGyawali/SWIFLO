@@ -37,44 +37,49 @@ async function readOnChainVaultState() {
   return { totalLiquidity, activeAdvances, utilizationBps, currentAprBps }
 }
 
-export const vaultRoutes: FastifyPluginAsync = async (app) => {
-  app.get('/api/vault/state', async () => {
-    let totalLiquidity: bigint
-    let activeAdvances: bigint
-    let utilizationBps: number
-    let currentAprBps: number
-
+// Sync on-chain state into DB every 15 seconds so the route never
+// blocks on a slow RPC call — the route always reads from DB.
+async function startOnChainSync() {
+  const sync = async () => {
     try {
-      const onChain = await readOnChainVaultState()
-      ;({ totalLiquidity, activeAdvances, utilizationBps, currentAprBps } = onChain)
-    } catch (err) {
-      console.warn('[vault/state] on-chain read failed, using DB fallback:', (err as Error).message)
-      const vault = await prisma.vaultState.upsert({
+      const { totalLiquidity, activeAdvances, utilizationBps, currentAprBps } =
+        await readOnChainVaultState()
+      await prisma.vaultState.upsert({
         where: { id: 'singleton' },
-        update: {},
-        create: {
-          totalLiquidity: BigInt(0),
-          activeAdvances: BigInt(0),
-          utilizationBps: 0,
-          currentAprBps: 1200,
-          totalYieldPaid: BigInt(0),
-        },
+        update: { totalLiquidity, activeAdvances, utilizationBps, currentAprBps },
+        create: { totalLiquidity, activeAdvances, utilizationBps, currentAprBps, totalYieldPaid: BigInt(0) },
       })
-      totalLiquidity = vault.totalLiquidity
-      activeAdvances = vault.activeAdvances
-      utilizationBps = vault.utilizationBps
-      currentAprBps  = vault.currentAprBps
+    } catch (err) {
+      console.warn('[vault/sync] on-chain read failed:', (err as Error).message)
     }
+  }
+  await sync()                          // run once immediately on startup
+  setInterval(sync, 15_000)            // then every 15 seconds
+}
 
-    const db = await prisma.vaultState.findUnique({ where: { id: 'singleton' } })
+export const vaultRoutes: FastifyPluginAsync = async (app) => {
+  startOnChainSync()
+
+  app.get('/api/vault/state', async () => {
+    const vault = await prisma.vaultState.upsert({
+      where: { id: 'singleton' },
+      update: {},
+      create: {
+        totalLiquidity: BigInt(0),
+        activeAdvances: BigInt(0),
+        utilizationBps: 0,
+        currentAprBps: 800,
+        totalYieldPaid: BigInt(0),
+      },
+    })
 
     return {
-      totalLiquidity: totalLiquidity.toString(),
-      activeAdvances: activeAdvances.toString(),
-      utilizationBps,
-      currentAprBps,
-      totalYieldPaid: db?.totalYieldPaid?.toString() ?? '0',
-      updatedAt: db?.updatedAt ?? new Date(),
+      totalLiquidity: vault.totalLiquidity.toString(),
+      activeAdvances: vault.activeAdvances.toString(),
+      utilizationBps: vault.utilizationBps,
+      currentAprBps:  vault.currentAprBps,
+      totalYieldPaid: vault.totalYieldPaid.toString(),
+      updatedAt:      vault.updatedAt,
     }
   })
 
