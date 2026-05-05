@@ -87,10 +87,10 @@ export default function LpPage() {
   const [success, setSuccess]        = useState('')
 
   useEffect(() => {
-    fetch(`${API}/api/vault/state`)
-      .then(r => r.json())
-      .then(setStats)
-      .catch(() => {})
+    const load = () => fetch(`${API}/api/vault/state`).then(r => r.json()).then(setStats).catch(() => {})
+    load()
+    const id = setInterval(load, 10_000)
+    return () => clearInterval(id)
   }, [success])
 
   useEffect(() => {
