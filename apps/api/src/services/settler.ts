@@ -1,6 +1,6 @@
 import cron from 'node-cron'
 import { prisma } from '../lib/prisma'
-import { settleTransfer, replenishVault, getOnChainTransferStatus } from './vault'
+import { settleTransfer, decrementVaultAdvances, getOnChainTransferStatus } from './vault'
 
 // 30s for hackathon demo; change to 172800 (2 days) for production
 const SETTLEMENT_DELAY_SECONDS = 30
@@ -48,10 +48,12 @@ export function startSettlementScheduler(): void {
         // Call replenish_vault on-chain if available: decrease active_advances on-chain.
         // This is non-blocking for settlement because settle_transfer already moved the funds back.
         try {
-          const sig = await replenishVault(BigInt(transfer.transferId), Number(transfer.amountUsdc))
-          console.log(`[settler] replenish_vault tx: ${sig} for transfer ${transfer.transferId}`)
+          const feeBps = BigInt(transfer.feeBps ?? 40)
+          const advanceAmt = (BigInt(transfer.amountUsdc) * (10_000n - feeBps)) / 10_000n
+          const sig = await decrementVaultAdvances(BigInt(transfer.transferId), advanceAmt)
+          console.log(`[settler] decrementVaultAdvances tx: ${sig} for transfer ${transfer.transferId}`)
         } catch (err) {
-          console.error(`[settler] replenish_vault failed for ${transfer.transferId}`, err)
+          console.error(`[settler] decrementVaultAdvances failed for ${transfer.transferId}`, err)
         }
 
         // Only after on-chain success, update DB and decrement vaultState using BigInt.
