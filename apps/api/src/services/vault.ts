@@ -173,3 +173,50 @@ export async function decrementVaultAdvances(transferId: bigint, amount: bigint)
   console.log(`[vault] decrementVaultAdvances tx: ${sig} (amount: ${amount})`)
   return sig
 }
+
+/**
+ * Collects 30 bps treasury fee from vault and transfers to SWIFLO_TREASURY_PUBKEY.
+ * Calls the vault program's collect_fees instruction.
+ * Uses the authority keypair as the signer.
+ */
+export async function collectFees(amount: bigint): Promise<string> {
+  const authority = loadAuthorityKeypair()
+  const treasuryPubkey = new PublicKey(process.env.SWIFLO_TREASURY_PUBKEY ?? '')
+
+  if (!treasuryPubkey || treasuryPubkey.toBase58() === '11111111111111111111111111111111') {
+    throw new Error('SWIFLO_TREASURY_PUBKEY not configured')
+  }
+
+  // Get or create treasury ATA for SWI mint
+  const treasuryAta = await getOrCreateAssociatedTokenAccount(
+    connection,
+    authority,
+    SWI_MINT,
+    treasuryPubkey
+  )
+
+  const [vaultPda] = PublicKey.findProgramAddressSync([Buffer.from('vault')], VAULT_PROGRAM_ID)
+
+  // Discriminator for collect_fees instruction (from IDL)
+  const COLLECT_FEES_DISC = Buffer.from([164, 152, 207, 99, 30, 186, 19, 182])
+
+  const data = Buffer.alloc(16)
+  COLLECT_FEES_DISC.copy(data, 0)
+  data.writeBigUInt64LE(amount, 8)
+
+  const ix = new TransactionInstruction({
+    programId: VAULT_PROGRAM_ID,
+    data,
+    keys: [
+      { pubkey: vaultPda,            isSigner: false, isWritable: true  },
+      { pubkey: authority.publicKey, isSigner: true,  isWritable: false },
+      { pubkey: VAULT_SWI,           isSigner: false, isWritable: true  },
+      { pubkey: treasuryAta.address, isSigner: false, isWritable: true  },
+      { pubkey: TOKEN_PROGRAM_ID,    isSigner: false, isWritable: false },
+    ],
+  })
+
+  const sig = await sendAndConfirmTransaction(connection, new Transaction().add(ix), [authority], { commitment: 'confirmed' })
+  console.log(`[vault] collectFees tx: ${sig} (amount: ${amount} to treasury)`)
+  return sig
+}
