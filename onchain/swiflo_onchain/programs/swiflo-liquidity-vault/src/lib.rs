@@ -27,6 +27,10 @@ pub mod swiflo_liquidity_vault {
     pub fn deposit_liquidity(ctx: Context<DepositLiquidity>, amount: u64) -> Result<()> {
         require!(amount > 0, VaultError::InvalidAmount);
 
+        // Snapshot pre-transfer state for share price calculation
+        let vault_balance_before = ctx.accounts.vault_usdc.amount;
+        let lp_supply_before     = ctx.accounts.lp_mint.supply;
+
         // Transfer USDC from LP to vault token account
         let cpi_accounts = Transfer {
             from: ctx.accounts.lp_usdc.to_account_info(),
@@ -38,7 +42,13 @@ pub mod swiflo_liquidity_vault {
             amount,
         )?;
 
-        // Mint LP tokens 1:1 with deposited USDC (simplified for hackathon)
+        // Mint LP tokens 1:1 with deposited amount. This simplifies UX so
+        // each deposited unit of USDC mints one LP token unit.
+        // The proportional withdrawal math still works because burns use
+        // the on-chain vault_balance / lp_supply ratio.
+        let lp_to_mint: u64 = amount;
+        require!(lp_to_mint > 0, VaultError::InvalidAmount);
+
         let bump = ctx.accounts.vault.bump;
         let seeds = &[b"vault".as_ref(), &[bump]];
         let signer = &[&seeds[..]];
@@ -54,7 +64,7 @@ pub mod swiflo_liquidity_vault {
                 cpi_accounts,
                 signer,
             ),
-            amount,
+            lp_to_mint,
         )?;
 
         let vault = &mut ctx.accounts.vault;
@@ -64,6 +74,7 @@ pub mod swiflo_liquidity_vault {
         emit!(LiquidityDeposited {
             lp: ctx.accounts.lp.key(),
             amount_usdc: amount,
+            lp_tokens_minted: lp_to_mint,
         });
 
         Ok(())
@@ -133,7 +144,17 @@ pub mod swiflo_liquidity_vault {
     pub fn claim_yield(ctx: Context<ClaimYield>, lp_tokens: u64) -> Result<()> {
         require!(lp_tokens > 0, VaultError::InvalidAmount);
 
-        // Burn LP tokens
+        // Snapshot pre-burn state for share price calculation
+        let vault_balance = ctx.accounts.vault_usdc.amount;
+        let lp_supply     = ctx.accounts.lp_mint.supply;
+        require!(lp_supply > 0, VaultError::InvalidAmount);
+
+        // usdc_to_return = lp_tokens * vault_balance / lp_supply
+        // When fee income has accrued in vault_usdc, this is > lp_tokens (yield captured)
+        let usdc_to_return = (lp_tokens as u128 * vault_balance as u128 / lp_supply as u128) as u64;
+        require!(usdc_to_return > 0, VaultError::InvalidAmount);
+
+        // Burn LP tokens first
         let cpi_accounts = Burn {
             mint: ctx.accounts.lp_mint.to_account_info(),
             from: ctx.accounts.lp_token_account.to_account_info(),
@@ -144,7 +165,7 @@ pub mod swiflo_liquidity_vault {
             lp_tokens,
         )?;
 
-        // Return principal USDC to LP (1:1 for hackathon simplicity)
+        // Return proportional USDC to LP
         let bump = ctx.accounts.vault.bump;
         let seeds = &[b"vault".as_ref(), &[bump]];
         let signer = &[&seeds[..]];
@@ -160,19 +181,48 @@ pub mod swiflo_liquidity_vault {
                 cpi_accounts,
                 signer,
             ),
-            lp_tokens,
+            usdc_to_return,
         )?;
 
         let vault = &mut ctx.accounts.vault;
-        vault.total_liquidity = vault.total_liquidity.saturating_sub(lp_tokens);
-        vault.total_yield_paid += lp_tokens;
+        vault.total_liquidity   = vault.total_liquidity.saturating_sub(usdc_to_return);
+        vault.total_yield_paid += usdc_to_return;
         vault.update_apr();
 
         emit!(YieldClaimed {
             lp: ctx.accounts.lp.key(),
             lp_tokens_burned: lp_tokens,
-            usdc_returned: lp_tokens,
+            usdc_returned: usdc_to_return,
         });
+
+        Ok(())
+    }
+
+    /// Sweeps fee income from vault_usdc to the Swiflo treasury wallet.
+    /// Called by the settler after each settlement (30 bps of transfer amount).
+    /// Only callable by vault.authority.
+    pub fn collect_fees(ctx: Context<CollectFees>, amount: u64) -> Result<()> {
+        require!(amount > 0, VaultError::InvalidAmount);
+
+        let bump = ctx.accounts.vault.bump;
+        let seeds = &[b"vault".as_ref(), &[bump]];
+        let signer = &[&seeds[..]];
+
+        let cpi_accounts = Transfer {
+            from: ctx.accounts.vault_usdc.to_account_info(),
+            to:   ctx.accounts.treasury_usdc.to_account_info(),
+            authority: ctx.accounts.vault.to_account_info(),
+        };
+        token::transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                cpi_accounts,
+                signer,
+            ),
+            amount,
+        )?;
+
+        emit!(FeesCollected { amount });
 
         Ok(())
     }
@@ -288,6 +338,22 @@ pub struct ClaimYield<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+#[derive(Accounts)]
+pub struct CollectFees<'info> {
+    #[account(mut, seeds = [b"vault"], bump = vault.bump, has_one = authority)]
+    pub vault: Account<'info, Vault>,
+
+    pub authority: Signer<'info>,
+
+    #[account(mut)]
+    pub vault_usdc: Account<'info, TokenAccount>,
+
+    #[account(mut)]
+    pub treasury_usdc: Account<'info, TokenAccount>,
+
+    pub token_program: Program<'info, Token>,
+}
+
 // ─── State ───────────────────────────────────────────────────────────────────
 
 #[account]
@@ -324,6 +390,7 @@ impl Vault {
 pub struct LiquidityDeposited {
     pub lp: Pubkey,
     pub amount_usdc: u64,
+    pub lp_tokens_minted: u64,
 }
 
 #[event]
@@ -343,6 +410,11 @@ pub struct YieldClaimed {
     pub lp: Pubkey,
     pub lp_tokens_burned: u64,
     pub usdc_returned: u64,
+}
+
+#[event]
+pub struct FeesCollected {
+    pub amount: u64,
 }
 
 // ─── Errors ──────────────────────────────────────────────────────────────────
