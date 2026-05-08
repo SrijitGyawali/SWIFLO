@@ -54,32 +54,56 @@ async function startOnChainSync() {
     }
   }
   await sync()                          // run once immediately on startup
-  setInterval(sync, 15_000)            // then every 15 seconds
+  setInterval(sync, 60_000)            // then every 60 seconds
 }
 
 export const vaultRoutes: FastifyPluginAsync = async (app) => {
   startOnChainSync()
 
   app.get('/api/vault/state', async () => {
-    const vault = await prisma.vaultState.upsert({
-      where: { id: 'singleton' },
-      update: {},
-      create: {
-        totalLiquidity: BigInt(0),
-        activeAdvances: BigInt(0),
-        utilizationBps: 0,
-        currentAprBps: 800,
-        totalYieldPaid: BigInt(0),
-      },
-    })
+    // Try to read fresh on-chain state first; fall back to DB if RPC is slow
+    try {
+      const { totalLiquidity, activeAdvances, utilizationBps, currentAprBps } = 
+        await readOnChainVaultState()
+      
+      // Also sync to DB for caching
+      await prisma.vaultState.upsert({
+        where: { id: 'singleton' },
+        update: { totalLiquidity, activeAdvances, utilizationBps, currentAprBps },
+        create: { totalLiquidity, activeAdvances, utilizationBps, currentAprBps, totalYieldPaid: BigInt(0) },
+      })
 
-    return {
-      totalLiquidity: vault.totalLiquidity.toString(),
-      activeAdvances: vault.activeAdvances.toString(),
-      utilizationBps: vault.utilizationBps,
-      currentAprBps:  vault.currentAprBps,
-      totalYieldPaid: vault.totalYieldPaid.toString(),
-      updatedAt:      vault.updatedAt,
+      return {
+        totalLiquidity: totalLiquidity.toString(),
+        activeAdvances: activeAdvances.toString(),
+        utilizationBps: utilizationBps,
+        currentAprBps: currentAprBps,
+        source: 'on-chain',
+      }
+    } catch (err) {
+      // Fallback to cached DB state if RPC fails
+      console.warn('[vault/state] on-chain read failed, using cached DB state:', (err as Error).message)
+      const vault = await prisma.vaultState.upsert({
+        where: { id: 'singleton' },
+        update: {},
+        create: {
+          totalLiquidity: BigInt(0),
+          activeAdvances: BigInt(0),
+          utilizationBps: 0,
+          currentAprBps: 800,
+          totalYieldPaid: BigInt(0),
+        },
+      })
+
+      return {
+        totalLiquidity: vault.totalLiquidity.toString(),
+        activeAdvances: vault.activeAdvances.toString(),
+        utilizationBps: vault.utilizationBps,
+        currentAprBps: vault.currentAprBps,
+        totalYieldPaid: vault.totalYieldPaid.toString(),
+        updatedAt: vault.updatedAt,
+        source: 'cached',
+      }
     }
   })
 
