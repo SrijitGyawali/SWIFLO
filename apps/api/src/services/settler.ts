@@ -1,6 +1,6 @@
 import cron from 'node-cron'
 import { prisma } from '../lib/prisma'
-import { settleTransfer, decrementVaultAdvances, getOnChainTransferStatus } from './vault'
+import { settleTransfer, decrementVaultAdvances, collectFees, getOnChainTransferStatus } from './vault'
 
 // 30s for hackathon demo; change to 172800 (2 days) for production
 const SETTLEMENT_DELAY_SECONDS = 30
@@ -54,6 +54,17 @@ export function startSettlementScheduler(): void {
           console.log(`[settler] decrementVaultAdvances tx: ${sig} for transfer ${transfer.transferId}`)
         } catch (err) {
           console.error(`[settler] decrementVaultAdvances failed for ${transfer.transferId}`, err)
+        }
+
+        // 30 bps → Swiflo treasury (on-chain via vault program collect_fees)
+        try {
+          const treasuryAmt = (BigInt(transfer.amountUsdc) * 30n) / 10_000n
+          if (treasuryAmt > 0n) {
+            const sig = await collectFees(treasuryAmt)
+            console.log(`[settler] treasury fee tx: ${sig} (${treasuryAmt} µUSDC)`)
+          }
+        } catch (err) {
+          console.error(`[settler] treasury fee failed for ${transfer.transferId}`, err)
         }
 
         // Only after on-chain success, update DB and decrement vaultState using BigInt.
