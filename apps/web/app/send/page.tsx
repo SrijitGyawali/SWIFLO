@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePrivy } from '@privy-io/react-auth'
+import { CurrencyConverter } from '@/components/CurrencyConverter'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
@@ -65,7 +66,7 @@ export default function SendPage() {
     return true
   }
 
-  const handleContinue = async () => {
+  const handleSend = async () => {
     if (!authenticated) { login(); return }
     if (!validate() || usdcNum <= 0) return
     setSubmitting(true)
@@ -85,11 +86,15 @@ export default function SendPage() {
         source:           estimate.source ?? 'live',
       })
       router.push(`/confirm?${params}`)
-    } catch {
-      alert('Could not fetch rate. Make sure the API is running.')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Transfer failed. Please try again.')
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleConverterAmountChange = (usdcAmount: number) => {
+    setAmountUsdc(String(usdcAmount))
   }
 
   return (
@@ -97,75 +102,39 @@ export default function SendPage() {
       <h1 className="text-3xl font-extrabold text-txt mb-2">Send money home</h1>
       <p className="text-muted mb-10">Instant transfer to eSewa in Nepal · 0.4% fee</p>
 
-      {/* Live rate badge */}
-      <div className="flex items-center gap-2 mb-6">
-        <span className={`w-2 h-2 rounded-full ${rateLoading ? 'bg-dim' : 'bg-success'}`} />
-        <span className="text-dim text-xs">
-          {rateLoading
-            ? 'Fetching live rate…'
-            : `1 USDC = Rs ${nprPerUsd.toFixed(2)} · via ${rate?.source ?? 'live'} · updates every 30s`}
-        </span>
-      </div>
-
-      {/* Amount */}
-      <div className="mb-6">
-        <label className="text-dim text-xs uppercase tracking-wide block mb-2">Amount (USDC)</label>
-        <div className="bg-surface rounded-xl border border-border px-4 py-3 flex items-center gap-3">
-          <input
-            type="number"
-            placeholder="0.00"
-            value={amountUsdc}
-            onChange={e => setAmountUsdc(e.target.value)}
-            className="flex-1 bg-transparent text-txt text-3xl font-bold outline-none placeholder-dim"
-          />
-          <span className="text-muted text-sm font-semibold bg-surface2 px-3 py-1 rounded-lg">USDC</span>
-        </div>
-        {usdcNum > 0 && (
-          <p className="text-muted text-sm mt-2">≈ Rs {grossNpr.toLocaleString('en-IN')} NPR</p>
-        )}
-      </div>
-
-      {/* Recipient */}
+      {/* Currency converter for gulf workers */}
       <div className="mb-8">
-        <label className="text-dim text-xs uppercase tracking-wide block mb-2">Recipient eSewa number</label>
-        <div className={`bg-surface rounded-xl border px-4 py-3 flex items-center gap-3 ${phoneError ? 'border-danger' : 'border-border'}`}>
-          <span className="text-txt">🇳🇵 +977</span>
-          <input
-            type="tel"
-            placeholder="98XXXXXXXX"
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-            maxLength={10}
-            className="flex-1 bg-transparent text-txt text-lg outline-none placeholder-dim"
-          />
+        <div className="bg-accent/10 border border-accent/30 rounded-2xl p-5 space-y-4">
+          <CurrencyConverter onAmountChange={handleConverterAmountChange} nprPerUsd={nprPerUsd} />
+          
+          {/* Recipient eSewa number - part of converter section */}
+          <div className="pt-4 border-t border-accent/20">
+            <label className="text-dim text-xs font-semibold block mb-2">Recipient eSewa number</label>
+            <div className={`bg-ink border px-4 py-3 flex items-center gap-3 rounded-xl ${phoneError ? 'border-danger' : 'border-accent/30'}`}>
+              <span className="text-accent font-bold">🇳🇵 +977</span>
+              <input
+                type="tel"
+                placeholder="98XXXXXXXX"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                maxLength={10}
+                className="flex-1 bg-transparent text-txt text-lg outline-none placeholder-dim focus:outline-none"
+              />
+            </div>
+            {phoneError && <p className="text-danger text-xs mt-2">{phoneError}</p>}
+          </div>
+
+          {/* Confirm & send button - part of converter section */}
+          <button
+            onClick={handleSend}
+            disabled={submitting || !phone || usdcNum <= 0}
+            className="w-full bg-accent hover:bg-accent/90 disabled:opacity-60 text-white font-bold py-4 rounded-xl text-lg transition-colors"
+          >
+            {!ready ? 'Loading…' : !authenticated ? 'Connect wallet to continue' : submitting ? 'Getting rate…' : 'See full comparison →'}
+          </button>
+          <p className="text-dim text-xs text-center">Calls initiate_transfer on Solana Devnet · Rate locked</p>
         </div>
-        {phoneError && <p className="text-danger text-xs mt-2">{phoneError}</p>}
       </div>
-
-      {/* Live comparison */}
-      {usdcNum > 0 && (
-        <div className="bg-surface2 rounded-xl p-4 mb-6 border border-border space-y-2 text-sm">
-          <div className="flex justify-between text-muted">
-            <span>Western Union (6%)</span>
-            <span>Rs {wuNpr.toLocaleString('en-IN')}</span>
-          </div>
-          <div className="flex justify-between text-txt font-semibold">
-            <span>Swiflo (0.4%)</span>
-            <span className="text-success">Rs {swifloNpr.toLocaleString('en-IN')}</span>
-          </div>
-          <div className="border-t border-border pt-2 text-success text-center text-xs font-medium">
-            Family gets Rs {savingsNpr.toLocaleString('en-IN')} more with Swiflo
-          </div>
-        </div>
-      )}
-
-      <button
-        onClick={handleContinue}
-        disabled={submitting}
-        className="w-full bg-accent hover:bg-accent/90 disabled:opacity-50 text-white font-bold py-4 rounded-xl text-lg transition-colors"
-      >
-        {!ready ? 'Loading…' : !authenticated ? 'Connect wallet to continue' : submitting ? 'Getting rate…' : 'See full comparison →'}
-      </button>
     </div>
   )
 }
