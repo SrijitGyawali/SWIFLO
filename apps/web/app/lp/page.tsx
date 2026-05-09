@@ -146,7 +146,7 @@ export default function LpPage() {
 
       const sig = await wallet.sendTransaction(tx, connection)
       await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed')
-      setSuccess(`Deposited ${amt} SWI — tx: ${sig.slice(0, 16)}…`)
+      setSuccess(`Deposited ${amt} USDC — tx: ${sig.slice(0, 16)}…`)
       setDepositAmt('')
     } catch (e: any) {
       setError(e.message ?? 'Deposit failed')
@@ -160,7 +160,7 @@ export default function LpPage() {
     const amt = parseFloat(withdrawAmt)
     if (!wallet || isNaN(amt) || amt <= 0) return
 
-    // Pre-flight: check vault has enough liquid SWI before sending on-chain
+    // Pre-flight: check vault has enough liquid USDC before sending on-chain
     if (stats) {
       const availableRaw = Number(stats.totalLiquidity) - Number(stats.activeAdvances)
       const requestedRaw = Math.round(amt * 1_000_000)
@@ -168,9 +168,9 @@ export default function LpPage() {
         const availableSWI = Math.max(0, availableRaw / 1_000_000)
         const lockedSWI    = (Number(stats.activeAdvances) / 1_000_000).toFixed(2)
         if (availableSWI <= 0) {
-          setError(`No SWI is available right now — ${lockedSWI} SWI is fully locked in active remittances. Wait for settlements to complete.`)
+          setError(`No USDC is available right now — ${lockedSWI} USDC is fully locked in active remittances. Wait for settlements to complete.`)
         } else {
-          setError(`Vault only has ${availableSWI.toFixed(2)} SWI available — ${lockedSWI} SWI is locked in active remittances. Withdraw up to ${availableSWI.toFixed(2)} SWI.`)
+          setError(`Vault only has ${availableSWI.toFixed(2)} USDC available — ${lockedSWI} USDC is locked in active remittances. Withdraw up to ${availableSWI.toFixed(2)} USDC.`)
         }
         return
       }
@@ -190,7 +190,7 @@ export default function LpPage() {
       tx.recentBlockhash = blockhash
       tx.feePayer = userPubkey
 
-      // Ensure user's SWI ATA exists (some wallets reject txs that would require ATA creation)
+      // Ensure user's USDC ATA exists (some wallets reject txs that would require ATA creation)
       const swiInfo = await connection.getAccountInfo(userSwi)
       if (!swiInfo) {
         tx.add(createAssociatedTokenAccountInstruction(
@@ -203,7 +203,7 @@ export default function LpPage() {
 
       const sig = await wallet.sendTransaction(tx, connection)
       await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed')
-      setSuccess(`Withdrew ${amt} SWI — tx: ${sig.slice(0, 16)}…`)
+      setSuccess(`Withdrew ${amt} USDC — tx: ${sig.slice(0, 16)}…`)
       setWithdrawAmt('')
     } catch (e: any) {
       const msg: string = e.message ?? ''
@@ -226,7 +226,7 @@ export default function LpPage() {
   return (
     <div className="max-w-lg mx-auto px-6 py-16">
       <h1 className="text-3xl font-extrabold text-txt mb-2">Earn yield</h1>
-      <p className="text-muted mb-8">Deposit SWI to back remittances · earn fees as yield</p>
+      <p className="text-muted mb-8">Deposit USDC to back remittances · earn fees as yield</p>
 
       {/* Vault stats */}
       <div className="grid grid-cols-3 gap-3 mb-8">
@@ -235,7 +235,7 @@ export default function LpPage() {
           <p className="text-success text-2xl font-bold">{apr}%</p>
         </div>
         <div className="bg-surface rounded-xl border border-border p-4 text-center">
-          <p className="text-dim text-xs uppercase tracking-wide mb-1">Total SWI</p>
+          <p className="text-dim text-xs uppercase tracking-wide mb-1">Total USDC</p>
           <p className="text-txt text-xl font-bold">{totalLiq}</p>
         </div>
         <div className="bg-surface rounded-xl border border-border p-4 text-center">
@@ -248,7 +248,7 @@ export default function LpPage() {
       {wallet && (
         <div className="flex gap-3 mb-8">
           <div className="flex-1 bg-surface2 rounded-xl border border-border px-4 py-3">
-            <p className="text-dim text-xs mb-1">Your SWI</p>
+            <p className="text-dim text-xs mb-1">Your USDC</p>
             <p className="text-txt font-bold">{swiBalance === null ? '—' : swiBalance.toFixed(2)}</p>
           </div>
           <div className="flex-1 bg-surface2 rounded-xl border border-border px-4 py-3">
@@ -263,7 +263,7 @@ export default function LpPage() {
 
       {/* Deposit */}
       <div className="bg-surface rounded-xl border border-border p-5 mb-4">
-        <p className="text-txt font-bold mb-3">Deposit SWI</p>
+        <p className="text-txt font-bold mb-3">Deposit USDC</p>
         <div className="flex gap-3">
           <input
             type="number"
@@ -304,11 +304,11 @@ export default function LpPage() {
         </div>
         {stats && (
           <p className="text-dim text-xs mt-2">
-            Available: {((Number(stats.totalLiquidity) - Number(stats.activeAdvances)) / 1_000_000).toFixed(2)} SWI
-            {Number(stats.activeAdvances) > 0 && ` (${(Number(stats.activeAdvances) / 1_000_000).toFixed(2)} SWI locked)`}
+            Available: {((Number(stats.totalLiquidity) - Number(stats.activeAdvances)) / 1_000_000).toFixed(2)} USDC
+            {Number(stats.activeAdvances) > 0 && ` (${(Number(stats.activeAdvances) / 1_000_000).toFixed(2)} USDC locked)`}
           </p>
         )}
-        <p className="text-dim text-xs mt-1">Burns LP tokens · returns SWI to your wallet</p>
+        <p className="text-dim text-xs mt-1">Burns LP tokens · returns USDC to your wallet</p>
       </div>
     </div>
   )
