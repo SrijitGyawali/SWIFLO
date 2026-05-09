@@ -62,7 +62,7 @@ export default function ExplorerPage() {
 
       {/* Pool account overview */}
       <div className="bg-surface rounded-xl p-4 border border-border mb-8">
-        <p className="text-dim text-xs mb-1">Pool SWI account</p>
+        <p className="text-dim text-xs mb-1">Pool USDC account</p>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div className="min-w-0">
             <p className="text-txt font-mono text-xs md:text-sm truncate" title={POOL_USDC || 'NEXT_PUBLIC_POOL_USDC not configured'}>
@@ -70,11 +70,11 @@ export default function ExplorerPage() {
             </p>
             <p className="text-muted text-sm mt-1">
               {poolUsdcBalanceLoading && POOL_USDC
-                ? 'Loading SWI balance...'
+                ? 'Loading USDC balance...'
                 : poolUsdcBalanceError
-                ? 'Unable to load SWI balance'
+                ? 'Unable to load USDC balance'
                 : POOL_USDC
-                ? `${(poolUsdcBalance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SWI`
+                ? `${(poolUsdcBalance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`
                 : 'Set NEXT_PUBLIC_POOL_USDC to view balance'}
             </p>
           </div>
@@ -95,7 +95,7 @@ export default function ExplorerPage() {
         <div className="grid grid-cols-3 gap-4 mb-8">
           {[
             { label: 'Total transfers', value: stats.totalTransfers },
-            { label: 'Volume (SWI)', value: `${(Number(stats.totalVolumeUsdc) / 1_000_000).toFixed(0)} SWI` },
+            { label: 'Volume (USDC)', value: `${(Number(stats.totalVolumeUsdc) / 1_000_000).toFixed(0)} USDC` },
             { label: 'Fees saved vs WU', value: `Rs ${Number(stats.totalSavedNpr).toLocaleString('en-IN')}` },
           ].map(s => (
             <div key={s.label} className="bg-surface rounded-xl p-4 border border-border">
@@ -117,7 +117,7 @@ export default function ExplorerPage() {
           <div key={t.id} className="bg-surface hover:bg-surface2 transition-colors rounded-xl p-4 border border-border flex items-center justify-between gap-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3">
-                <span className="text-txt font-bold">{(Number(t.amountUsdc) / 1_000_000).toFixed(2)} SWI</span>
+                <span className="text-txt font-bold">{(Number(t.amountUsdc) / 1_000_000).toFixed(2)} USDC</span>
                 <span className="text-dim">→</span>
                 <span className="text-muted text-sm">{t.recipientPhone}</span>
               </div>
