@@ -44,7 +44,7 @@ export function FaucetButton() {
         <div className="flex items-center gap-3 mb-4">
           <span className="text-2xl">🧪</span>
           <div>
-            <p className="font-bold text-success">Get test SWI</p>
+            <p className="font-bold text-success">Get test USDC</p>
             <p className="text-success/70 text-sm">Devnet only · 0.1 SOL included for fees</p>
           </div>
         </div>
@@ -58,7 +58,7 @@ export function FaucetButton() {
             disabled={state === 'loading' || state === 'success'}
             className="flex-1 bg-ink border border-success/30 text-success font-bold text-xl rounded-xl px-4 py-3 outline-none focus:border-success disabled:opacity-60"
           />
-          <span className="text-success font-bold text-lg">SWI</span>
+          <span className="text-success font-bold text-lg">USDC</span>
         </div>
 
         <button
@@ -66,7 +66,7 @@ export function FaucetButton() {
           disabled={state === 'loading' || state === 'success'}
           className="w-full bg-success/20 hover:bg-success/30 border border-success/30 text-success font-bold py-3 rounded-xl text-lg transition-all disabled:opacity-60"
         >
-          {state === 'loading' ? '⏳ Sending...' : state === 'success' ? '✅ Done!' : `Get ${amount} SWI →`}
+          {state === 'loading' ? '⏳ Sending...' : state === 'success' ? '✅ Done!' : `Get ${amount} USDC →`}
         </button>
       </div>
 
