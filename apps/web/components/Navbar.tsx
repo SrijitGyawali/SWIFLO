@@ -3,8 +3,10 @@
 import Link from 'next/link'
 import { usePrivy } from '@privy-io/react-auth'
 import { useSolanaWallets } from '@privy-io/react-auth'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Connection, PublicKey } from '@solana/web3.js'
+import { AnimatePresence, motion } from 'framer-motion'
+import { WalletSidebar } from './WalletSidebar'
 
 type TokenHolding = {
   mint: string
@@ -64,7 +66,7 @@ export function Navbar() {
   const { ready, authenticated, login, logout } = usePrivy()
   const { wallets, createWallet } = useSolanaWallets()
   const [copied, setCopied] = useState(false)
-  const [holdingsOpen, setHoldingsOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [holdingsLoading, setHoldingsLoading] = useState(false)
   const [holdingsError, setHoldingsError] = useState('')
   const [holdings, setHoldings] = useState<TokenHolding[]>([])
@@ -77,8 +79,6 @@ export function Navbar() {
     if (!authenticated) return
     if (wallets.length > 0) return
     createWallet().catch((err: any) => {
-      // Privy returns an error if the user already has an embedded wallet on the server
-      // — this can race with the client-side wallet list being populated. Ignore it.
       const msg = String(err?.message ?? err)
       if (msg.includes('User already has an embedded wallet')) {
         console.debug('Navbar: createWallet skipped — embedded wallet already exists')
@@ -102,7 +102,7 @@ export function Navbar() {
   }
 
   useEffect(() => {
-    if (!holdingsOpen || !address) return
+    if (!sidebarOpen || !address) return
 
     let cancelled = false
 
@@ -148,100 +148,341 @@ export function Navbar() {
     return () => {
       cancelled = true
     }
-  }, [holdingsOpen, address])
+  }, [sidebarOpen, address])
+
+  /* Derive SWI balance from holdings (the SWI mint amount, parsed as number) */
+  const swiBalance = useMemo(() => {
+    const swi = holdings.find((h) => h.mint === SWI_MINT)
+    if (!swi) return null
+    const n = Number(swi.amount)
+    return Number.isFinite(n) ? n : null
+  }, [holdings])
+
+  const handleDisconnect = () => {
+    setSidebarOpen(false)
+    logout()
+  }
+
+  const navLinks: NavLink[] = [
+    { href: '/explorer', label: 'Explorer', Icon: CompassIcon },
+    { href: '/fund',     label: 'Get USDC', Icon: UsdcIcon    },
+    { href: '/send',     label: 'Send',     Icon: SendIcon    },
+    { href: '/lp',       label: 'Earn',     Icon: WalletIcon  },
+  ]
+
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  // Lock body scroll while the mobile drawer is open
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const original = document.body.style.overflow
+    document.body.style.overflow = mobileOpen ? 'hidden' : original
+    return () => {
+      document.body.style.overflow = original
+    }
+  }, [mobileOpen])
 
   return (
-    <nav className="border-b border-border px-6 py-4 flex items-center justify-between max-w-7xl mx-auto w-full">
-      <Link href="/" className="text-xl font-bold text-txt tracking-tight">
-        swiflo
-      </Link>
-      <div className="flex items-center gap-6">
-        <Link href="/explorer" className="text-muted hover:text-txt text-sm transition-colors">Explorer</Link>
-        <Link href="/fund" className="text-muted hover:text-txt text-sm transition-colors">Get USDC</Link>
-        <Link href="/send" className="text-muted hover:text-txt text-sm transition-colors">Send</Link>
-        <Link href="/lp" className="text-muted hover:text-txt text-sm transition-colors">Earn</Link>
-        {ready && (
-          authenticated ? (
-            <div
-              className="relative flex items-center gap-3"
-              onMouseEnter={() => setHoldingsOpen(true)}
-              onMouseLeave={() => setHoldingsOpen(false)}
+    <header className="pointer-events-none sticky top-0 z-50 w-full">
+      <nav className="pointer-events-auto mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-4">
+        {/* Logo pill */}
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/70 px-4 py-1.5 shadow-[0_8px_24px_-12px_rgba(11,11,20,0.18),inset_0_1px_0_rgba(255,255,255,0.6)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white/85 hover:shadow-[0_12px_28px_-14px_rgba(11,11,20,0.22)]"
+        >
+          <img
+            src="/swiflo-logo.png"
+            alt="Swiflo"
+            className="h-7 w-auto select-none"
+            draggable={false}
+          />
+          <span className="pr-1 text-lg font-bold tracking-tight text-[#0A0F1F]">swiflo</span>
+        </Link>
+
+        {/* Center nav pill */}
+        <div className="hidden items-center rounded-full border border-white/40 bg-white/70 px-3 py-1.5 shadow-[0_8px_24px_-12px_rgba(11,11,20,0.18),inset_0_1px_0_rgba(255,255,255,0.6)] backdrop-blur-xl md:flex">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="rounded-full px-5 py-2 text-sm font-medium text-[#3C4253] transition-colors hover:bg-white/60 hover:text-[#0A0F1F]"
             >
-              {address && (
+              {link.label}
+            </Link>
+          ))}
+        </div>
+
+        {/* Mobile hamburger — glassmorphism, icon-only, visible on small screens */}
+        <button
+          type="button"
+          onClick={() => setMobileOpen((v) => !v)}
+          aria-expanded={mobileOpen}
+          aria-controls="mobile-menu"
+          aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-white/30 text-[#0A0F1F] shadow-[0_8px_24px_-12px_rgba(11,11,20,0.18),inset_0_1px_0_rgba(255,255,255,0.6)] backdrop-blur-xl transition-all hover:bg-white/50 active:scale-95 md:hidden"
+        >
+          {mobileOpen ? <CloseIcon className="h-5 w-5" /> : <HamburgerIcon className="h-5 w-5" />}
+        </button>
+
+        {/* Desktop right buttons */}
+        <div className="hidden items-center gap-2 md:flex">
+          <Link
+            href="/explorer"
+            className="hidden rounded-full border border-white/40 bg-white/70 px-5 py-2.5 text-sm font-semibold text-[#0A0F1F] shadow-[0_8px_24px_-12px_rgba(11,11,20,0.18),inset_0_1px_0_rgba(255,255,255,0.6)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white/85 hover:shadow-[0_12px_28px_-14px_rgba(11,11,20,0.22)] sm:inline-flex"
+          >
+            Try Widget
+          </Link>
+
+          {ready && (
+            authenticated ? (
+              address && (
                 <button
-                  onClick={copyAddress}
-                  title="Click to copy wallet address"
-                  className="text-xs font-mono text-muted hover:text-txt bg-surface border border-border px-3 py-1.5 rounded-lg transition-colors"
+                  type="button"
+                  onClick={() => setSidebarOpen(true)}
+                  title="Open wallet"
+                  className="group inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/70 py-1.5 pl-1.5 pr-3.5 shadow-[0_8px_24px_-12px_rgba(11,11,20,0.18),inset_0_1px_0_rgba(255,255,255,0.6)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white/85 hover:shadow-[0_12px_28px_-14px_rgba(11,11,20,0.22)]"
                 >
-                  {copied ? 'Copied!' : `${address.slice(0, 4)}...${address.slice(-4)}`}
+                  <span className="relative flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#2D45F2] via-[#5B2CFF] to-[#22D3EE] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]">
+                    <span className="absolute -bottom-1 -right-1 h-2.5 w-2.5 rounded-full bg-[#10B981] ring-2 ring-white" />
+                  </span>
+                  <span className="font-mono text-xs font-semibold text-[#0A0F1F]">
+                    {`${address.slice(0, 4)}...${address.slice(-4)}`}
+                  </span>
                 </button>
-              )}
-
-              {address && holdingsOpen && (
-                <div className="absolute right-0 top-full mt-2 w-80 rounded-2xl border border-border bg-surface shadow-xl p-4 z-50">
-                  <div className="flex items-center justify-between gap-3 mb-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-dim">Wallet holdings</p>
-                      <p className="text-sm text-muted font-mono truncate">{address}</p>
-                    </div>
-                    <button
-                      onClick={copyAddress}
-                      className="text-xs font-semibold px-2 py-1 rounded-md bg-surface2 border border-border text-txt hover:bg-border transition-colors"
-                    >
-                      Copy
-                    </button>
-                  </div>
-
-                  {holdingsLoading && <p className="text-sm text-muted">Loading tokens...</p>}
-                  {holdingsError && <p className="text-sm text-danger">{holdingsError}</p>}
-
-                  {!holdingsLoading && !holdingsError && (
-                    <div className="space-y-3 max-h-72 overflow-auto pr-1">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="rounded-xl bg-surface2 border border-border px-3 py-2">
-                          <p className="text-xs text-dim uppercase tracking-wide mb-1">Native SOL</p>
-                          <p className="text-sm font-bold text-txt">{nativeBalance === null ? '—' : `${nativeBalance.toFixed(4)} SOL`}</p>
-                        </div>
-                        <div className="rounded-xl bg-surface2 border border-border px-3 py-2">
-                          <p className="text-xs text-dim uppercase tracking-wide mb-1">USDC</p>
-                          <p className="text-sm font-bold text-txt">{usdcBalance === null ? '—' : `${usdcBalance.toFixed(2)} USDC`}</p>
-                        </div>
-                      </div>
-
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-dim mb-2">All tokens</p>
-                        {holdings.length === 0 ? (
-                          <p className="text-sm text-muted">No SPL token balances found.</p>
-                        ) : (
-                          holdings.map((holding) => (
-                            <div key={holding.mint} className="flex items-center justify-between gap-4 rounded-xl bg-surface2 border border-border px-3 py-2 mb-2 last:mb-0">
-                              <div className="min-w-0">
-                                <p className="text-sm font-semibold text-txt truncate">{holding.mint === SWI_MINT ? 'USDC' : `${holding.mint.slice(0, 6)}...${holding.mint.slice(-6)}`}</p>
-                                <p className="text-xs text-dim font-mono truncate">{holding.mint}</p>
-                              </div>
-                              <p className="text-sm font-bold text-txt whitespace-nowrap">{holding.amount}</p>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              <button onClick={logout} className="text-sm text-muted hover:text-danger transition-colors">
-                Disconnect
+              )
+            ) : (
+              <button
+                onClick={login}
+                className="inline-flex items-center gap-2 rounded-full bg-[#1A2BE0] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_-10px_rgba(26,43,224,0.7)] transition-all hover:-translate-y-0.5 hover:bg-[#2236E8] hover:shadow-[0_16px_30px_-12px_rgba(26,43,224,0.8)]"
+              >
+                <NavWalletIcon className="h-4 w-4" />
+                Connect Wallet
               </button>
+            )
+          )}
+        </div>
+      </nav>
+
+      {/* Wallet sidebar */}
+      <WalletSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        address={address ?? ''}
+        copied={copied}
+        onCopy={copyAddress}
+        onDisconnect={handleDisconnect}
+        nativeBalance={nativeBalance}
+        usdcBalance={usdcBalance}
+        swiBalance={swiBalance}
+        holdings={holdings}
+        loading={holdingsLoading}
+        error={holdingsError}
+      />
+
+      {/* Mobile drawer */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            id="mobile-menu"
+            key="mobile-menu"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="pointer-events-auto md:hidden"
+          >
+            <div className="mx-auto w-full max-w-7xl px-4 pb-6 pt-2 sm:px-6">
+              {/* Nav links list */}
+              <div className="overflow-hidden rounded-3xl border border-[#0A0F1F]/8 bg-white shadow-[0_20px_50px_-20px_rgba(11,11,20,0.18)]">
+                {navLinks.map((link, i) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center gap-4 px-5 py-4 transition-colors hover:bg-[#0A0F1F]/3 active:bg-[#0A0F1F]/5 ${
+                      i > 0 ? 'border-t border-[#0A0F1F]/6' : ''
+                    }`}
+                  >
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#2D45F2]/10 text-[#2D45F2]">
+                      <link.Icon className="h-4 w-4" />
+                    </span>
+                    <span className="flex-1 text-base font-semibold text-[#0A0F1F]">
+                      {link.label}
+                    </span>
+                    <ChevronRightIcon className="h-4 w-4 text-[#0A0F1F]/40" />
+                  </Link>
+                ))}
+              </div>
+
+              {/* Bottom action stack */}
+              <div className="mt-3 flex flex-col gap-2.5">
+                <Link
+                  href="/explorer"
+                  onClick={() => setMobileOpen(false)}
+                  className="inline-flex items-center justify-center rounded-full border border-[#0A0F1F]/15 bg-white px-5 py-3.5 text-sm font-semibold text-[#0A0F1F] shadow-[0_6px_22px_-12px_rgba(11,11,20,0.18)] transition-colors hover:border-[#0A0F1F]/35"
+                >
+                  Try Widget
+                </Link>
+
+                {ready && (
+                  authenticated ? (
+                    address && (
+                      <button
+                        onClick={() => {
+                          setMobileOpen(false)
+                          setSidebarOpen(true)
+                        }}
+                        className="inline-flex items-center justify-center gap-2 rounded-full border border-[#0A0F1F]/10 bg-white py-3.5 pl-3 pr-5 shadow-[0_6px_22px_-12px_rgba(11,11,20,0.18)] transition-colors hover:bg-[#F4F5FA]"
+                      >
+                        <span className="relative flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#2D45F2] via-[#5B2CFF] to-[#22D3EE]">
+                          <span className="absolute -bottom-1 -right-1 h-2.5 w-2.5 rounded-full bg-[#10B981] ring-2 ring-white" />
+                        </span>
+                        <span className="font-mono text-xs font-semibold text-[#0A0F1F]">
+                          {`${address.slice(0, 6)}...${address.slice(-4)}`}
+                        </span>
+                        <span className="ml-auto text-[11px] font-semibold text-[#5A5F7A]">View</span>
+                      </button>
+                    )
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setMobileOpen(false)
+                        login()
+                      }}
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1A2BE0] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-10px_rgba(26,43,224,0.7)] transition-colors hover:bg-[#2236E8]"
+                    >
+                      <NavWalletIcon className="h-4 w-4" />
+                      Connect Wallet
+                    </button>
+                  )
+                )}
+              </div>
             </div>
-          ) : (
-            <button
-              onClick={login}
-              className="bg-accent hover:bg-accent/90 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-            >
-              Connect
-            </button>
-          )
+          </motion.div>
         )}
-      </div>
-    </nav>
+      </AnimatePresence>
+    </header>
+  )
+}
+
+type NavLink = {
+  href: string
+  label: string
+  Icon: (props: { className?: string }) => JSX.Element
+}
+
+function HamburgerIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <path
+        d="M4 7h16M4 12h16M4 17h16"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+function CloseIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <path
+        d="M6 6l12 12M18 6L6 18"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+function ChevronRightIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <path
+        d="M9 6l6 6-6 6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function CompassIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <circle cx="12" cy="12" r="9.5" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M15.5 8.5l-2 5-5 2 2-5 5-2z"
+        fill="currentColor"
+      />
+    </svg>
+  )
+}
+
+function UsdcIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <circle cx="12" cy="12" r="9.5" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M12 6.5v11M14.5 9c0-1.2-1-2-2.5-2s-2.5.7-2.5 1.9c0 1.4 1.5 1.7 2.5 2 1 .3 2.5.6 2.5 2 0 1.2-1 1.9-2.5 1.9s-2.5-.7-2.5-2"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+function SendIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <path
+        d="M3.5 12L20 5l-3 14-5-5-2.5 4-1-7-5-1z"
+        fill="currentColor"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function WalletIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <path
+        d="M3 8a3 3 0 013-3h11a2 2 0 012 2v1H6a3 3 0 00-3 3V8z"
+        fill="currentColor"
+        opacity="0.4"
+      />
+      <path
+        d="M3 11a3 3 0 013-3h13a2 2 0 012 2v8a2 2 0 01-2 2H6a3 3 0 01-3-3v-6z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <circle cx="17" cy="14.5" r="1.4" fill="currentColor" />
+    </svg>
+  )
+}
+
+function NavWalletIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <path
+        d="M3 8a3 3 0 013-3h11a2 2 0 012 2v1H6a3 3 0 00-3 3V8z"
+        fill="currentColor"
+        opacity="0.55"
+      />
+      <path
+        d="M3 11a3 3 0 013-3h13a2 2 0 012 2v8a2 2 0 01-2 2H6a3 3 0 01-3-3v-6z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <circle cx="17" cy="14.5" r="1.4" fill="currentColor" />
+    </svg>
   )
 }
