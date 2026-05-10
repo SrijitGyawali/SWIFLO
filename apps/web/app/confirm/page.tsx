@@ -124,6 +124,7 @@ function ConfirmContent() {
 
       const signature = await wallet.sendTransaction(tx, connection)
       await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
+      console.log(`[swiflo-api] initiateTransfer on-chain: ${signature}`)
 
       const res = await fetch(`${API}/api/webhooks/transfer-initiated`, {
         method: 'POST',
