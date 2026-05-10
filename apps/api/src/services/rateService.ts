@@ -11,6 +11,18 @@ let cachedRate: number | null = null
 let cacheTime   = 0
 let cacheSource = 'fallback'
 
+type ExchangeRateApiResponse = {
+  rates?: {
+    NPR?: number
+  }
+}
+
+type CoinGeckoUsdcResponse = {
+  'usd-coin'?: {
+    npr?: number
+  }
+}
+
 // ── Pyth: get USDC/USD (should be ~1.000) ──────────────────────────────────
 async function fetchUsdcUsdFromPyth(): Promise<number> {
   const url = `${PYTH_HERMES_URL}?ids[]=${USDC_USD_FEED_ID}`
@@ -29,7 +41,7 @@ async function fetchUsdcUsdFromPyth(): Promise<number> {
 // ── ExchangeRate-API: get USD/NPR ──────────────────────────────────────────
 async function fetchUsdNprFromExchangeApi(): Promise<number> {
   const res  = await fetch('https://api.exchangerate-api.com/v4/latest/USD', { signal: AbortSignal.timeout(5000) })
-  const data = await res.json()
+  const data = await res.json() as ExchangeRateApiResponse
   const rate = data?.rates?.NPR
   if (!rate || typeof rate !== 'number') throw new Error('ExchangeRate-API: missing NPR rate')
   return rate
@@ -41,7 +53,7 @@ async function fetchFromCoinGecko(): Promise<number> {
     'https://api.coingecko.com/api/v3/simple/price?ids=usd-coin&vs_currencies=npr',
     { signal: AbortSignal.timeout(5000) }
   )
-  const data = await res.json()
+  const data = await res.json() as CoinGeckoUsdcResponse
   const rate = data?.['usd-coin']?.npr
   if (!rate || typeof rate !== 'number') throw new Error('CoinGecko: missing rate')
   return rate

@@ -61,6 +61,7 @@ const INITIATE_TRANSFER_DISC = crypto.createHash('sha256')
 const CONFIRM_DISBURSEMENT_DISC = Buffer.from([157, 26, 17, 151, 82, 205, 12, 37])
 
 const COLLECT_FEES_DISC = Buffer.from([164, 152, 207, 99, 30, 186, 19, 182])
+const CLAIM_YIELD_DISC = Buffer.from([49, 74, 111, 7, 186, 22, 61, 165])
 
 const connection = new Connection(RPC, 'confirmed')
 
@@ -398,4 +399,40 @@ export async function collectFees(amount: bigint): Promise<string> {
 
   const sig = await sendAndConfirmTransaction(connection, new Transaction().add(ix), [authority], { commitment: 'confirmed' })
   return sig
+}
+
+export async function buildClaimYieldTx(userPubkeyString: string, lpTokens: bigint): Promise<string> {
+  const userPubkey = new PublicKey(userPubkeyString)
+  const [vaultPda] = PublicKey.findProgramAddressSync([Buffer.from('vault')], VAULT_PROGRAM_ID)
+  const userSwi = await getAssociatedTokenAddress(SWI_MINT, userPubkey)
+  const userLpAta = await getAssociatedTokenAddress(
+    new PublicKey(process.env.LP_MINT ?? '99sFqGr245Dohx8P2F616sPp4magaR87E4sxX1RKoBxD'),
+    userPubkey,
+  )
+
+  const data = Buffer.alloc(16)
+  CLAIM_YIELD_DISC.copy(data, 0)
+  data.writeBigUInt64LE(lpTokens, 8)
+
+  const { blockhash } = await connection.getLatestBlockhash()
+  const tx = new Transaction({
+    recentBlockhash: blockhash,
+    feePayer: userPubkey,
+  })
+
+  tx.add(new TransactionInstruction({
+    programId: VAULT_PROGRAM_ID,
+    data,
+    keys: [
+      { pubkey: vaultPda,       isSigner: false, isWritable: true  },
+      { pubkey: new PublicKey(process.env.LP_MINT ?? '99sFqGr245Dohx8P2F616sPp4magaR87E4sxX1RKoBxD'), isSigner: false, isWritable: true },
+      { pubkey: userPubkey,     isSigner: true,  isWritable: true  },
+      { pubkey: userSwi,        isSigner: false, isWritable: true  },
+      { pubkey: VAULT_SWI,      isSigner: false, isWritable: true  },
+      { pubkey: userLpAta,      isSigner: false, isWritable: true  },
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+    ],
+  }))
+
+  return tx.serialize({ requireAllSignatures: false }).toString('base64')
 }
