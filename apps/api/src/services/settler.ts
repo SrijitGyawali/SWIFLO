@@ -1,9 +1,51 @@
 import cron from 'node-cron'
 import { prisma } from '../lib/prisma'
-import { settleTransfer, decrementVaultAdvances, collectFees, getOnChainTransferStatus } from './vault'
+import { swifloApiChainLog } from '../lib/swifloChainLog'
+import {
+  settleTransfer,
+  decrementVaultAdvances,
+  collectFees,
+  getOnChainTransferStatus,
+  getTransferSignatures,
+  classifySignatures,
+} from './vault'
 
 // 30s for hackathon demo; change to 172800 (2 days) for production
 const SETTLEMENT_DELAY_SECONDS = 30
+
+function labelToInstruction(label: string): string {
+  const snake: Record<string, string> = {
+    advance_to_mto: 'advanceToMto',
+    settle_transfer: 'settleTransfer',
+    replenish_vault: 'replenishVault',
+    collect_fees: 'collectFees',
+    initiate_transfer: 'initiateTransfer',
+    confirm_disbursement: 'confirmDisbursement',
+    unknown: 'unknownInstruction',
+  }
+  if (snake[label]) return snake[label]
+  if (/^[A-Z]/.test(label)) return label.charAt(0).toLowerCase() + label.slice(1)
+  return label
+}
+
+/** When DB catches up to chain without submitting txs, print the same log lines from RPC history. */
+async function printTransferChainTxLogs(onChainTransferId: bigint): Promise<void> {
+  try {
+    const sigs = await getTransferSignatures(onChainTransferId)
+    if (!sigs?.length) return
+    const classified = await classifySignatures(sigs)
+    classified.sort((a, b) => {
+      const ta = a.blockTime ?? Number.MAX_SAFE_INTEGER
+      const tb = b.blockTime ?? Number.MAX_SAFE_INTEGER
+      return ta - tb
+    })
+    for (const c of classified) {
+      swifloApiChainLog(labelToInstruction(c.label), c.signature)
+    }
+  } catch (err) {
+    console.error(`[settler] failed to log chain history for transfer ${onChainTransferId}`, err)
+  }
+}
 
 export function startSettlementScheduler(): void {
   cron.schedule('*/10 * * * * *', async () => {
@@ -28,43 +70,35 @@ export function startSettlementScheduler(): void {
             where: { id: transfer.id },
             data: { status: 'SETTLED', settledAt: new Date() },
           })
-
-          console.log(
-            `[settler] Reconciled already-settled transfer ${transfer.transferId} from on-chain state`
-          )
+          await printTransferChainTxLogs(BigInt(transfer.transferId))
           continue
         }
 
-        if (onChainStatus !== 'DISBURSED') {
-          console.log(
-            `[settler] Skipping transfer ${transfer.transferId} because on-chain status is ${onChainStatus}`
-          )
-          continue
-        }
+        if (onChainStatus !== 'DISBURSED') continue
 
         // Call settle_transfer on-chain: moves SWI from pool escrow → vault
-        await settleTransfer(transfer.transferId)
+        const settleSig = await settleTransfer(transfer.transferId)
+        swifloApiChainLog('settleTransfer', settleSig)
 
-        // Call replenish_vault on-chain if available: decrease active_advances on-chain.
-        // This is non-blocking for settlement because settle_transfer already moved the funds back.
+        // Vault replenish_vault (decrementVaultAdvances): drops active_advances on-chain after settle.
         try {
           const feeBps = BigInt(transfer.feeBps ?? 40)
           const advanceAmt = (BigInt(transfer.amountUsdc) * (10_000n - feeBps)) / 10_000n
           const sig = await decrementVaultAdvances(BigInt(transfer.transferId), advanceAmt)
-          console.log(`[settler] decrementVaultAdvances tx: ${sig} for transfer ${transfer.transferId}`)
+          swifloApiChainLog('replenishVault', sig)
         } catch (err) {
-          console.error(`[settler] decrementVaultAdvances failed for ${transfer.transferId}`, err)
+          console.error(`[settler] replenishVault / decrementVaultAdvances failed for ${transfer.transferId}`, err)
         }
 
-        // 30 bps → Swiflo treasury (on-chain via vault program collect_fees)
+        // Vault collect_fees → treasury
         try {
           const treasuryAmt = (BigInt(transfer.amountUsdc) * 30n) / 10_000n
           if (treasuryAmt > 0n) {
             const sig = await collectFees(treasuryAmt)
-            console.log(`[settler] treasury fee tx: ${sig} (${treasuryAmt} µUSDC)`)
+            swifloApiChainLog('collectFees', sig)
           }
         } catch (err) {
-          console.error(`[settler] treasury fee failed for ${transfer.transferId}`, err)
+          console.error(`[settler] collectFees failed for ${transfer.transferId}`, err)
         }
 
         // Only after on-chain success, update DB and decrement vaultState using BigInt.
@@ -89,7 +123,6 @@ export function startSettlementScheduler(): void {
           },
         })
 
-        console.log(`[settler] Settled transfer ${transfer.transferId}`)
       } catch (err) {
         if (err instanceof Error && err.message.includes('InvalidStatus')) {
           const onChainStatus = await getOnChainTransferStatus(transfer.transferId)
@@ -98,9 +131,7 @@ export function startSettlementScheduler(): void {
               where: { id: transfer.id },
               data: { status: 'SETTLED', settledAt: new Date() },
             })
-            console.log(
-              `[settler] Reconciled transfer ${transfer.transferId} after InvalidStatus`
-            )
+            await printTransferChainTxLogs(BigInt(transfer.transferId))
             continue
           }
         }
