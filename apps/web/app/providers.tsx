@@ -1,7 +1,6 @@
 'use client'
 
 import { PrivyProvider } from '@privy-io/react-auth'
-import { toSolanaWalletConnectors } from '@privy-io/react-auth/solana'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -11,15 +10,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
         appearance: {
           theme: 'dark',
           accentColor: '#5865F2',
+          walletChainType: 'solana-only',
         },
-        loginMethods: ['email', 'sms', 'wallet'],
+        loginMethods: ['email', 'sms'],
         embeddedWallets: {
           createOnLogin: 'all-users',
           showWalletUIs: false,
           noPromptOnSignature: true,
-        },
-        externalWallets: {
-          solana: { connectors: toSolanaWalletConnectors() },
         },
       }}
     >

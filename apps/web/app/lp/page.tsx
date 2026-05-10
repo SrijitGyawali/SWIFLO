@@ -12,6 +12,7 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
 } from '@solana/spl-token'
 import { motion } from 'framer-motion'
+import { WalletGate } from '@/components/WalletGate'
 
 const RPC         = process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? 'https://api.devnet.solana.com'
 const API         = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
@@ -75,6 +76,17 @@ type VaultStats = {
 }
 
 export default function LpPage() {
+  return (
+    <WalletGate
+      title="Connect to earn"
+      description="Connect your wallet to deposit USDC, view LP tokens, and manage yield."
+    >
+      <LpDashboard />
+    </WalletGate>
+  )
+}
+
+function LpDashboard() {
   const { wallets } = useSolanaWallets()
   const wallet = wallets[0]
 

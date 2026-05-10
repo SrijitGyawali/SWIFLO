@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { usePrivy } from '@privy-io/react-auth'
 import { CurrencyConverter } from '@/components/CurrencyConverter'
 import { motion } from 'framer-motion'
+import { WalletGate } from '@/components/WalletGate'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
@@ -42,8 +42,18 @@ function useRate(amountUsdc: number) {
 }
 
 export default function SendPage() {
+  return (
+    <WalletGate
+      title="Connect to send money"
+      description="Connect your wallet to estimate rates, confirm transfers, and send funds securely."
+    >
+      <SendDashboard />
+    </WalletGate>
+  )
+}
+
+function SendDashboard() {
   const router = useRouter()
-  const { ready, authenticated, login } = usePrivy()
   const [amountUsdc, setAmountUsdc] = useState('')
   const [phone, setPhone]           = useState('')
   const [phoneError, setPhoneError] = useState('')
@@ -64,7 +74,6 @@ export default function SendPage() {
   }
 
   const handleSend = async () => {
-    if (!authenticated) { login(); return }
     if (!validate() || usdcNum <= 0) return
     setSubmitting(true)
     try {
@@ -126,7 +135,7 @@ export default function SendPage() {
           disabled={submitting || !phone || usdcNum <= 0}
           className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#355BFF] px-5 py-4 text-base font-extrabold text-white shadow-[0_18px_42px_-24px_rgba(53,91,255,0.9)] transition-all hover:-translate-y-0.5 hover:bg-[#294DF0] disabled:translate-y-0 disabled:opacity-60"
         >
-          {!ready ? 'Loading...' : !authenticated ? 'Connect wallet to continue' : submitting ? 'Getting rate...' : 'See full comparison'}
+          {submitting ? 'Getting rate...' : 'See full comparison'}
           <ArrowRightIcon className="h-5 w-5" />
         </button>
 

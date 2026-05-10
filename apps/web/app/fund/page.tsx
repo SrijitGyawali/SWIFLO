@@ -1,13 +1,24 @@
 'use client'
 
-import { usePrivy, useSolanaWallets } from '@privy-io/react-auth'
+import { useSolanaWallets } from '@privy-io/react-auth'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { FaucetButton } from '@/components/FaucetButton'
 import { motion } from 'framer-motion'
+import { WalletGate } from '@/components/WalletGate'
 
 export default function FundPage() {
-  const { ready, authenticated, login } = usePrivy()
+  return (
+    <WalletGate
+      title="Connect to get USDC"
+      description="Connect your wallet to view your Solana address and fund it with test USDC."
+    >
+      <FundDashboard />
+    </WalletGate>
+  )
+}
+
+function FundDashboard() {
   const { wallets } = useSolanaWallets()
   const router = useRouter()
   const [copied, setCopied] = useState(false)
@@ -20,26 +31,6 @@ export default function FundPage() {
     navigator.clipboard.writeText(address)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }
-
-  if (!ready) return null
-
-  if (!authenticated) {
-    return (
-      <div className="mx-auto max-w-lg px-6 py-24 text-center">
-        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-3xl bg-[#EAF1FF] text-[#2D45F2]">
-          <KeyIcon className="h-8 w-8" />
-        </div>
-        <h1 className="mb-4 text-3xl font-extrabold tracking-tight text-[#07133A]">Connect first</h1>
-        <p className="mb-8 text-[#6F7DA8]">Sign in to get your Solana wallet and load test funds</p>
-        <button
-          onClick={login}
-          className="rounded-2xl bg-[#2F5BFF] px-8 py-4 text-lg font-extrabold text-white shadow-[0_18px_45px_-22px_rgba(47,91,255,0.9)] transition-all hover:-translate-y-0.5 hover:bg-[#254DF0]"
-        >
-          Connect wallet
-        </button>
-      </div>
-    )
   }
 
   return (
@@ -149,14 +140,6 @@ function FeatureCard({ icon, title, body }: { icon: React.ReactNode; title: stri
         <p className="mt-1 text-sm font-semibold leading-relaxed text-[#6F7DA8]">{body}</p>
       </div>
     </div>
-  )
-}
-
-function KeyIcon({ className = '' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
-      <path d="M14 10a5 5 0 11-2.1-4.1L21 5l-1 4h-3v3h-3v-2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   )
 }
 

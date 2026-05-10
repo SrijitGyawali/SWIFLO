@@ -5,6 +5,7 @@ import Link from 'next/link'
 import useSWR from 'swr'
 import { Connection, PublicKey } from '@solana/web3.js'
 import { motion } from 'framer-motion'
+import { WalletGate } from '@/components/WalletGate'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 const SOLANA_RPC = process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? 'https://api.devnet.solana.com'
@@ -31,6 +32,17 @@ function formatPoolBalance(value?: number) {
 }
 
 export default function ExplorerPage() {
+  return (
+    <WalletGate
+      title="Connect to view Explorer"
+      description="Connect your wallet to view Swiflo transfers, pool data, and live transaction activity."
+    >
+      <ExplorerDashboard />
+    </WalletGate>
+  )
+}
+
+function ExplorerDashboard() {
   const { data: transfers = [] } = useSWR<any[]>(`${API}/api/transfers?limit=50`, fetcher, { refreshInterval: 4000 })
   const { data: stats } = useSWR(`${API}/api/stats`, fetcher, { refreshInterval: 5000 })
   const [copied, setCopied] = useState(false)
