@@ -61,7 +61,21 @@ export async function handleTransferInitiated(
       const advanceAmountUsdc = (transfer.amountUsdc * (10_000n - feeBps)) / 10_000n
       const advanceAmountNpr = (advanceAmountUsdc * transfer.lockedRate) / 1_000_000n
 
-      await advanceToMTO(transfer.transferId, advanceAmountUsdc)
+      try {
+        await advanceToMTO(transfer.transferId, advanceAmountUsdc)
+      } catch (err: any) {
+        const message = String(err?.message ?? err)
+        const logs = Array.isArray(err?.transactionLogs) ? err.transactionLogs.join('\n') : ''
+        const isInsufficientLiquidity = message.includes('InsufficientLiquidity') || logs.includes('InsufficientLiquidity')
+
+        if (isInsufficientLiquidity) {
+          console.warn('[indexer] skipping advanceToMTO: vault liquidity too low')
+          return
+        }
+
+        throw err
+      }
+
       await notifyMTO({
         transferId: transfer.id,
         onChainTransferId: transfer.transferId.toString(),
