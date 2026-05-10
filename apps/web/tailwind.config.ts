@@ -19,7 +19,7 @@ const config: Config = {
         highlight: '#FFD84D',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Saans', 'Inter', 'system-ui', 'sans-serif'],
         mono: ['GeistMono', 'monospace'],
       },
     },
