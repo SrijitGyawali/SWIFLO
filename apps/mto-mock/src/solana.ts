@@ -68,6 +68,6 @@ export async function confirmDisbursementOnChain(
 
   const tx = new Transaction().add(ix)
   const sig = await sendAndConfirmTransaction(connection, tx, [mtoKeypair], { commitment: 'confirmed' })
-  console.log(`[mto-solana] confirmDisbursement on-chain: ${sig}`)
+  console.log(`[swiflo-api] confirmDisbursement on-chain: ${sig}`)
   return sig
 }
