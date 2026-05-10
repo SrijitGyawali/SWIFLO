@@ -14,9 +14,14 @@ type CurrencyMap = Record<string, CurrencyInfo>
 interface CurrencyConverterProps {
   onAmountChange?: (amount: number) => void
   nprPerUsd?: number
+  showFamilyReceives?: boolean
 }
 
-export function CurrencyConverter({ onAmountChange, nprPerUsd = 133.5 }: CurrencyConverterProps) {
+export function CurrencyConverter({
+  onAmountChange,
+  nprPerUsd = 133.5,
+  showFamilyReceives = true,
+}: CurrencyConverterProps) {
   const [currencies, setCurrencies] = useState<CurrencyMap>({})
   const [selectedCurrency, setSelectedCurrency] = useState('AED')
   const [amount, setAmount] = useState('100')
@@ -93,8 +98,10 @@ export function CurrencyConverter({ onAmountChange, nprPerUsd = 133.5 }: Currenc
             <CardIcon className="h-5 w-5" />
           </span>
           <div>
-            <p className="text-base font-extrabold text-[#2F5BFF]">I'm sending from the Gulf</p>
-            <p className="mt-1 text-sm font-bold text-[#7484B6]">Send to family in Nepal</p>
+            <p className="text-base font-extrabold text-[#2F5BFF]">I&apos;m sending from the Gulf</p>
+            <p className="mt-1 text-sm font-bold text-[#7484B6]">
+              {showFamilyReceives ? 'Send to family in Nepal' : 'Convert local currency to USDC'}
+            </p>
           </div>
         </div>
 
@@ -156,17 +163,27 @@ export function CurrencyConverter({ onAmountChange, nprPerUsd = 133.5 }: Currenc
               </span>
             </div>
             <div className="p-4">
-              <p className="mb-2 text-xs font-bold text-[#7484B6]">Your family receives</p>
-              <p className="text-base font-extrabold text-[#00B879]">
-                Rs {familyReceives} <span className="text-sm">NPR</span>
+              <p className="mb-2 text-xs font-bold text-[#7484B6]">
+                {showFamilyReceives ? 'Your family receives' : 'You get'}
               </p>
+              {showFamilyReceives ? (
+                <p className="text-base font-extrabold text-[#00B879]">
+                  Rs {familyReceives} <span className="text-sm">NPR</span>
+                </p>
+              ) : (
+                <p className="text-base font-extrabold text-[#00B879]">
+                  {amountUsdc} <span className="text-sm">USDC</span>
+                </p>
+              )}
             </div>
           </div>
         )}
 
         {!amountUsdc && !error && !loading && (
           <p className="rounded-xl border border-[#DCE6FF] bg-white/70 px-4 py-8 text-center text-sm font-bold text-[#7484B6]">
-            Enter an amount to see how much your family will receive
+            {showFamilyReceives
+              ? 'Enter an amount to see how much your family will receive'
+              : 'Enter an amount to see your USDC quote'}
           </p>
         )}
 
