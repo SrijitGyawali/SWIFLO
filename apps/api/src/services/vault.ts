@@ -3,6 +3,26 @@ import {
   Connection, Keypair, PublicKey, Transaction, TransactionInstruction,
   sendAndConfirmTransaction,
 } from '@solana/web3.js'
+function base58Decode(s: string): Buffer {
+  const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+  let num = 0n
+  for (const ch of s) {
+    const idx = alphabet.indexOf(ch)
+    if (idx === -1) throw new Error('Invalid base58 character')
+    num = num * 58n + BigInt(idx)
+  }
+  const bytes: number[] = []
+  while (num > 0n) {
+    bytes.push(Number(num & 0xffn))
+    num = num >> 8n
+  }
+  bytes.reverse()
+  // leading zero bytes for '1' chars
+  let leadingZeros = 0
+  for (const ch of s) { if (ch === '1') leadingZeros++; else break }
+  const out = Buffer.concat([Buffer.alloc(leadingZeros), Buffer.from(bytes)])
+  return out
+}
 import {
   getAssociatedTokenAddress,
   getOrCreateAssociatedTokenAccount,
@@ -10,6 +30,8 @@ import {
   createAssociatedTokenAccountInstruction,
   TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
 } from '@solana/spl-token'
+
+import { swifloApiChainLog } from '../lib/swifloChainLog'
 
 const RPC              = process.env.SOLANA_RPC_URL ?? 'https://api.devnet.solana.com'
 const VAULT_PROGRAM_ID = new PublicKey(process.env.LIQUIDITY_VAULT_PROGRAM_ID ?? '13BEbXJJ2aLQ6yMQA9QdtwguL2rDKdzsVBZNEbATwBhN')
@@ -30,7 +52,29 @@ const VAULT_REPLENISH_DISC = crypto.createHash('sha256')
   .digest()
   .subarray(0, 8)
 
+const INITIATE_TRANSFER_DISC = crypto.createHash('sha256')
+  .update('global:initiate_transfer')
+  .digest()
+  .subarray(0, 8)
+
+// Same as apps/mto-mock SHA256("global:confirm_disbursement")[0:8]
+const CONFIRM_DISBURSEMENT_DISC = Buffer.from([157, 26, 17, 151, 82, 205, 12, 37])
+
+const COLLECT_FEES_DISC = Buffer.from([164, 152, 207, 99, 30, 186, 19, 182])
+
 const connection = new Connection(RPC, 'confirmed')
+
+const GET_TX_OPTS = {
+  commitment: 'confirmed' as const,
+  maxSupportedTransactionVersion: 0,
+  encoding: 'jsonParsed' as const,
+}
+
+/** Default encoding keeps base58 ix.data for Anchor discriminators (jsonParsed often omits it). */
+const CLASSIFY_TX_OPTS = {
+  commitment: 'confirmed' as const,
+  maxSupportedTransactionVersion: 0,
+}
 
 const TRANSFER_STATUS_OFFSET = 96
 
@@ -57,6 +101,127 @@ export async function getOnChainTransferStatus(transferId: bigint): Promise<OnCh
   }
 }
 
+export async function getTransferSignatures(onChainTransferId: bigint) {
+  const seqBuf = Buffer.alloc(8)
+  seqBuf.writeBigUInt64LE(onChainTransferId)
+  const [transferPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from('transfer'), seqBuf],
+    POOL_PROGRAM_ID
+  )
+
+  // Return recent signatures involving the transfer PDA so callers can inspect
+  // the settle/related transactions when reconciling.
+  const sigs = await connection.getSignaturesForAddress(transferPda, { limit: 20 })
+  return sigs
+}
+
+export async function getTransactionDetails(signature: string) {
+  const tx = await connection.getTransaction(signature, GET_TX_OPTS)
+  return tx
+}
+
+function collectInstructionPayloads(tx: { transaction?: { message?: any }; meta?: any }): Buffer[] {
+  const out: Buffer[] = []
+  const pushDecoded = (data: unknown) => {
+    if (Buffer.isBuffer(data)) {
+      if (data.length >= 8) out.push(data)
+      return
+    }
+    if (typeof data !== 'string') return
+    try {
+      const buf = base58Decode(data)
+      if (buf.length >= 8) out.push(buf)
+    } catch {
+      /* skip */
+    }
+  }
+  const msg = tx.transaction?.message
+  if (msg) {
+    const outer = msg.instructions ?? msg.compiledInstructions ?? []
+    for (const ix of outer) pushDecoded(ix.data)
+  }
+  for (const inner of tx.meta?.innerInstructions ?? []) {
+    for (const ix of inner.instructions ?? []) pushDecoded(ix.data)
+  }
+  return out
+}
+
+function labelFromDiscriminator(buf: Buffer): string | null {
+  if (buf.length < 8) return null
+  const disc = buf.subarray(0, 8)
+  if (disc.equals(INITIATE_TRANSFER_DISC)) return 'initiate_transfer'
+  if (disc.equals(CONFIRM_DISBURSEMENT_DISC)) return 'confirm_disbursement'
+  if (disc.equals(ADVANCE_DISC)) return 'advance_to_mto'
+  if (disc.equals(SETTLE_DISC)) return 'settle_transfer'
+  if (disc.equals(VAULT_REPLENISH_DISC)) return 'replenish_vault'
+  if (disc.equals(COLLECT_FEES_DISC)) return 'collect_fees'
+  return null
+}
+
+/** Match Swiflo Anchor names only (avoid first-line ComputeBudget etc.). */
+function labelFromAnchorLogs(logMessages: string[] | null | undefined): string | null {
+  const priority = [
+    'InitiateTransfer',
+    'ConfirmDisbursement',
+    'SettleTransfer',
+    'AdvanceToMto',
+    'ReplenishVault',
+    'CollectFees',
+  ]
+  const seen: string[] = []
+  for (const line of logMessages ?? []) {
+    const m = line.match(/Instruction:\s*([A-Za-z0-9_]+)/)
+    if (m) seen.push(m[1])
+  }
+  for (const p of priority) {
+    if (seen.includes(p)) return p
+  }
+  return null
+}
+
+export async function classifySignatures(sigs: Array<{ signature: string }>) {
+  const out: Array<{ signature: string; label: string; blockTime: number | null }> = []
+  for (const s of sigs) {
+    try {
+      const tx = await connection.getTransaction(s.signature, CLASSIFY_TX_OPTS)
+      if (!tx || !tx.meta) {
+        out.push({ signature: s.signature, label: 'unknown', blockTime: tx?.blockTime ?? null })
+        continue
+      }
+
+      let label = 'unknown'
+
+      for (const payload of collectInstructionPayloads(tx)) {
+        const hit = labelFromDiscriminator(payload)
+        if (hit) {
+          label = hit
+          break
+        }
+      }
+
+      if (label === 'unknown') {
+        const logLabel = labelFromAnchorLogs(tx.meta.logMessages)
+        if (logLabel) label = logLabel
+      }
+
+      if (label === 'unknown') {
+        const logs = (tx.meta.logMessages ?? []).join('\n')
+        if (logs.includes('AdvanceToMto') || logs.includes('advance_to_mto')) label = 'advance_to_mto'
+        else if (logs.includes('SettleTransfer') || logs.toLowerCase().includes('settletransfer')) label = 'settle_transfer'
+        else if (logs.includes('ReplenishVault') || logs.includes('replenish_vault')) label = 'replenish_vault'
+        else if (logs.includes('CollectFees') || logs.includes('collect_fees')) label = 'collect_fees'
+        else if (logs.includes('InitiateTransfer')) label = 'initiate_transfer'
+        else if (logs.includes('ConfirmDisbursement')) label = 'confirm_disbursement'
+      }
+
+      out.push({ signature: s.signature, label, blockTime: tx.blockTime ?? null })
+    } catch {
+      out.push({ signature: s.signature, label: 'unknown', blockTime: null })
+    }
+  }
+  return out
+}
+
 function loadAuthorityKeypair(): Keypair {
   const raw = process.env.FAUCET_SECRET_KEY
   if (!raw) throw new Error('FAUCET_SECRET_KEY not set')
@@ -69,6 +234,14 @@ export async function advanceToMTO(transferId: bigint, amount: bigint): Promise<
 
   const [vaultPda] = PublicKey.findProgramAddressSync([Buffer.from('vault')], VAULT_PROGRAM_ID)
   const mtoSwi     = await getAssociatedTokenAddress(SWI_MINT, mtoAuthority)
+
+  // Fast guard: if the vault token account is short, skip the transaction.
+  const vaultBalanceResp = await connection.getTokenAccountBalance(VAULT_SWI)
+  const vaultBalance = BigInt(vaultBalanceResp.value.amount)
+  if (vaultBalance < amount) {
+    console.warn(`[vault] insufficient liquidity: have ${vaultBalance}, need ${amount}`)
+    throw new Error('InsufficientVaultLiquidity')
+  }
 
   const tx = new Transaction()
 
@@ -97,9 +270,18 @@ export async function advanceToMTO(transferId: bigint, amount: bigint): Promise<
     ],
   }))
 
-  const sig = await sendAndConfirmTransaction(connection, tx, [authority], { commitment: 'confirmed' })
-  console.log(`[vault] advance_to_mto tx: ${sig}`)
-  return sig
+  try {
+    const sig = await sendAndConfirmTransaction(connection, tx, [authority], { commitment: 'confirmed' })
+    console.log(`[swiflo-api] advanceToMto on-chain: ${sig}`)
+    return sig
+  } catch (err: any) {
+    const message = String(err?.message ?? err)
+    if (message.includes('InsufficientLiquidity')) {
+      console.warn('[vault] advance_to_mto skipped due to insufficient liquidity')
+      throw new Error('InsufficientVaultLiquidity')
+    }
+    throw err
+  }
 }
 
 export async function settleTransfer(onChainTransferId: bigint): Promise<string> {
@@ -132,7 +314,6 @@ export async function settleTransfer(onChainTransferId: bigint): Promise<string>
   })
 
   const sig = await sendAndConfirmTransaction(connection, new Transaction().add(ix), [authority], { commitment: 'confirmed' })
-  console.log(`[vault] settle_transfer tx: ${sig}`)
   return sig
 }
 
@@ -170,7 +351,6 @@ export async function decrementVaultAdvances(transferId: bigint, amount: bigint)
   })
 
   const sig = await sendAndConfirmTransaction(connection, new Transaction().add(ix), [faucet], { commitment: 'confirmed' })
-  console.log(`[vault] decrementVaultAdvances tx: ${sig} (amount: ${amount})`)
   return sig
 }
 
@@ -217,6 +397,5 @@ export async function collectFees(amount: bigint): Promise<string> {
   })
 
   const sig = await sendAndConfirmTransaction(connection, new Transaction().add(ix), [authority], { commitment: 'confirmed' })
-  console.log(`[vault] collectFees tx: ${sig} (amount: ${amount} to treasury)`)
   return sig
 }
