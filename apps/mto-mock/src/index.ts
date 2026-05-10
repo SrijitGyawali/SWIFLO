@@ -64,7 +64,7 @@ async function main() {
     }
   })
 
-  const port = Number(process.env.MTO_PORT ?? 3002)
+  const port = Number(process.env.PORT ?? process.env.MTO_PORT ?? 3002)
   await app.listen({ port, host: '0.0.0.0' })
   console.log(`[mto] Listening on port ${port}`)
 }
