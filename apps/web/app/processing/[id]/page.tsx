@@ -32,6 +32,7 @@ function ProcessingContent() {
 
   const [step, setStep] = useState(1)
   const [messageIndex, setMessageIndex] = useState(0)
+  const [transferStatus, setTransferStatus] = useState<string>('INITIATED')
 
   useEffect(() => {
     const messageTimer = setInterval(() => {
@@ -46,6 +47,7 @@ function ProcessingContent() {
         const res = await fetch(`${API}/api/transfers/${id}/status`)
         if (!res.ok) return
         const data = await res.json()
+        setTransferStatus(data.status ?? 'INITIATED')
         if (data.status === 'DISBURSED' || data.status === 'SETTLED') {
           setStep(3)
           setTimeout(() => {
@@ -149,6 +151,10 @@ function ProcessingContent() {
                 >
                   {LIVE_MESSAGES[messageIndex]}
                 </motion.p>
+              <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#EAF1FF] px-3 py-1 text-xs font-extrabold text-[#355BFF]">
+                <span className="h-2 w-2 rounded-full bg-[#355BFF]" />
+                {transferStatus}
+              </div>
               </div>
               <span className="rounded-full bg-[#EAF1FF] px-3 py-1 text-xs font-extrabold text-[#355BFF]">LIVE</span>
             </div>
