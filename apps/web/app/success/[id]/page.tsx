@@ -23,6 +23,7 @@ function SuccessContent() {
 
   const [signature, setSignature] = useState<string | null>(null)
   const [messageIndex, setMessageIndex] = useState(0)
+  const [transferStatus, setTransferStatus] = useState<string>('SETTLED')
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -39,6 +40,7 @@ function SuccessContent() {
         if (!res.ok) return
         const data = await res.json()
         if (!cancelled) setSignature(data.solanaTxSignature ?? null)
+        if (!cancelled && data.status) setTransferStatus(data.status)
       } catch {}
     })()
     return () => { cancelled = true }
@@ -77,7 +79,7 @@ function SuccessContent() {
           </p>
           <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#E7FFF6] px-4 py-2 text-xs font-extrabold text-[#00A76F]">
             <span className="h-2 w-2 rounded-full bg-[#00C982] shadow-[0_0_14px_rgba(0,201,130,0.75)]" />
-            Completed in 12 seconds
+            {transferStatus}
           </span>
 
           <div className="mt-8 overflow-hidden rounded-[24px] border border-[#DCE6FF] bg-white/72 shadow-[0_28px_80px_-52px_rgba(47,91,255,0.8)] backdrop-blur">
