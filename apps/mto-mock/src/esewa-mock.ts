@@ -18,7 +18,7 @@ export async function mockEsewaCredit(params: {
   console.log(`[esewa-mock] Crediting ${displayNpr} NPR → ${params.phone}`)
 
   return {
-    txRef: `ESEWA-MOCK-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
+    txRef: `ESEWA-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
     status: 'SUCCESS',
     creditedAt: new Date().toISOString(),
     phone: params.phone,
