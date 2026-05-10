@@ -73,6 +73,41 @@ export function Navbar() {
   const [nativeBalance, setNativeBalance] = useState<number | null>(null)
   const [usdcBalance, setUsdcBalance] = useState<number | null>(null)
 
+  const refreshHoldings = async (addressToLoad: string) => {
+    setHoldingsLoading(true)
+    setHoldingsError('')
+    try {
+      const [result, native, usdc, parsedAccount] = await Promise.all([
+        fetchTokenHoldings(addressToLoad),
+        fetchNativeBalance(addressToLoad),
+        fetchUSDCBalance(addressToLoad),
+        connection.getParsedAccountInfo(new PublicKey(addressToLoad), 'confirmed'),
+      ])
+
+      const combinedHoldings = [...result]
+      const parsedInfo = parsedAccount.value?.data && 'parsed' in parsedAccount.value.data
+        ? (parsedAccount.value.data as any).parsed?.info
+        : null
+      if (result.length === 0 && parsedInfo?.mint && parsedInfo?.tokenAmount) {
+        combinedHoldings.push({
+          mint: parsedInfo.mint,
+          amount: parsedInfo.tokenAmount.uiAmountString ?? String(parsedInfo.tokenAmount.uiAmount ?? 0),
+        })
+      }
+
+      setHoldings(combinedHoldings)
+      setNativeBalance(native)
+      setUsdcBalance(usdc)
+    } catch (error) {
+      setHoldingsError('Could not load token holdings')
+      setHoldings([])
+      setNativeBalance(null)
+      setUsdcBalance(null)
+    } finally {
+      setHoldingsLoading(false)
+    }
+  }
+
   useEffect(() => {
     console.debug('Navbar state', { ready, authenticated, walletsLength: wallets.length })
     if (!ready) return
@@ -94,6 +129,16 @@ export function Navbar() {
 
   const address = wallets[0]?.address
 
+  useEffect(() => {
+    const onFaucetComplete = () => {
+      if (!address || !sidebarOpen) return
+      void refreshHoldings(address)
+    }
+
+    window.addEventListener('swiflo:faucet-complete', onFaucetComplete)
+    return () => window.removeEventListener('swiflo:faucet-complete', onFaucetComplete)
+  }, [address, sidebarOpen])
+
   const copyAddress = () => {
     if (!address) return
     navigator.clipboard.writeText(address)
@@ -104,50 +149,9 @@ export function Navbar() {
   useEffect(() => {
     if (!sidebarOpen || !address) return
 
-    let cancelled = false
+    void refreshHoldings(address)
 
-    const loadHoldings = async () => {
-      setHoldingsLoading(true)
-      setHoldingsError('')
-      try {
-        const [result, native, usdc, parsedAccount] = await Promise.all([
-          fetchTokenHoldings(address),
-          fetchNativeBalance(address),
-          fetchUSDCBalance(address),
-          connection.getParsedAccountInfo(new PublicKey(address), 'confirmed'),
-        ])
-        if (!cancelled) {
-          const combinedHoldings = [...result]
-          const parsedInfo = parsedAccount.value?.data && 'parsed' in parsedAccount.value.data
-            ? (parsedAccount.value.data as any).parsed?.info
-            : null
-          if (result.length === 0 && parsedInfo?.mint && parsedInfo?.tokenAmount) {
-            combinedHoldings.push({
-              mint: parsedInfo.mint,
-              amount: parsedInfo.tokenAmount.uiAmountString ?? String(parsedInfo.tokenAmount.uiAmount ?? 0),
-            })
-          }
-          setHoldings(combinedHoldings)
-          setNativeBalance(native)
-          setUsdcBalance(usdc)
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setHoldingsError('Could not load token holdings')
-          setHoldings([])
-          setNativeBalance(null)
-          setUsdcBalance(null)
-        }
-      } finally {
-        if (!cancelled) setHoldingsLoading(false)
-      }
-    }
-
-    void loadHoldings()
-
-    return () => {
-      cancelled = true
-    }
+    return undefined
   }, [sidebarOpen, address])
 
   /* Derive SWI balance from holdings (the SWI mint amount, parsed as number) */
