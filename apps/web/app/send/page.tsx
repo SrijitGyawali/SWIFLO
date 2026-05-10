@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePrivy } from '@privy-io/react-auth'
 import { CurrencyConverter } from '@/components/CurrencyConverter'
+import { motion } from 'framer-motion'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
@@ -49,13 +50,9 @@ export default function SendPage() {
   const [submitting, setSubmitting] = useState(false)
 
   const usdcNum       = parseFloat(amountUsdc) || 0
-  const { data: rate, loading: rateLoading } = useRate(usdcNum)
+  const { data: rate } = useRate(usdcNum)
 
   const nprPerUsd   = rate?.nprPerUsd  ?? 133.5
-  const swifloNpr   = usdcNum > 0 ? (rate?.swifloNpr  ?? Math.round(usdcNum * nprPerUsd * 0.996)) : 0
-  const wuNpr       = usdcNum > 0 ? (rate?.wuNpr      ?? Math.round(usdcNum * nprPerUsd * 0.94))  : 0
-  const savingsNpr  = usdcNum > 0 ? (rate?.savingsNpr ?? swifloNpr - wuNpr)                        : 0
-  const grossNpr    = Math.round(usdcNum * nprPerUsd)
 
   const validate = () => {
     if (!phone.match(/^9[678]\d{8}$/)) {
@@ -98,43 +95,71 @@ export default function SendPage() {
   }
 
   return (
-    <div className="max-w-lg mx-auto px-6 py-16">
-      <h1 className="text-3xl font-extrabold text-txt mb-2">Send money home</h1>
-      <p className="text-muted mb-10">Instant transfer to eSewa in Nepal · 0.4% fee</p>
+    <div className="mx-auto w-full max-w-[520px] px-5 pb-12 pt-8 sm:px-8">
+      <motion.section
+        initial={{ opacity: 0, y: 18, scale: 0.985 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+        className="rounded-3xl border border-[#DCE6FF] bg-white/70 p-5 shadow-[0_24px_70px_-45px_rgba(47,91,255,0.65)] backdrop-blur"
+      >
+        <CurrencyConverter onAmountChange={handleConverterAmountChange} nprPerUsd={nprPerUsd} />
 
-      {/* Currency converter for gulf workers */}
-      <div className="mb-8">
-        <div className="bg-accent/10 border border-accent/30 rounded-2xl p-5 space-y-4">
-          <CurrencyConverter onAmountChange={handleConverterAmountChange} nprPerUsd={nprPerUsd} />
-          
-          {/* Recipient eSewa number - part of converter section */}
-          <div className="pt-4 border-t border-accent/20">
-            <label className="text-dim text-xs font-semibold block mb-2">Recipient eSewa number</label>
-            <div className={`bg-ink border px-4 py-3 flex items-center gap-3 rounded-xl ${phoneError ? 'border-danger' : 'border-accent/30'}`}>
-              <span className="text-accent font-bold">🇳🇵 +977</span>
-              <input
-                type="tel"
-                placeholder="98XXXXXXXX"
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-                maxLength={10}
-                className="flex-1 bg-transparent text-txt text-lg outline-none placeholder-dim focus:outline-none"
-              />
-            </div>
-            {phoneError && <p className="text-danger text-xs mt-2">{phoneError}</p>}
+        <div className="mt-5 border-t border-[#DCE6FF] pt-5">
+          <label className="mb-2 block text-xs font-bold text-[#60709A]">Recipient eSewa number</label>
+          <div className={`flex h-12 items-center overflow-hidden rounded-xl border bg-white ${phoneError ? 'border-[#D92D43]' : 'border-[#DCE6FF]'}`}>
+            <span className="flex h-full items-center border-r border-[#DCE6FF] px-4 text-sm font-extrabold text-[#2F5BFF]">NP +977</span>
+            <input
+              type="tel"
+              placeholder="9847033308"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              maxLength={10}
+              className="min-w-0 flex-1 bg-transparent px-4 text-base font-extrabold text-[#07133A] outline-none placeholder:text-[#9AA8CB]"
+            />
+            <UserIcon className="mr-4 h-5 w-5 flex-none text-[#60709A]" />
           </div>
-
-          {/* Confirm & send button - part of converter section */}
-          <button
-            onClick={handleSend}
-            disabled={submitting || !phone || usdcNum <= 0}
-            className="w-full bg-accent hover:bg-accent/90 disabled:opacity-60 text-white font-bold py-4 rounded-xl text-lg transition-colors"
-          >
-            {!ready ? 'Loading…' : !authenticated ? 'Connect wallet to continue' : submitting ? 'Getting rate…' : 'See full comparison →'}
-          </button>
-          <p className="text-dim text-xs text-center">Calls initiate_transfer on Solana Devnet · Rate locked</p>
+          {phoneError && <p className="mt-2 text-xs font-bold text-[#D92D43]">{phoneError}</p>}
         </div>
-      </div>
+
+        <button
+          onClick={handleSend}
+          disabled={submitting || !phone || usdcNum <= 0}
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#355BFF] px-5 py-4 text-base font-extrabold text-white shadow-[0_18px_42px_-24px_rgba(53,91,255,0.9)] transition-all hover:-translate-y-0.5 hover:bg-[#294DF0] disabled:translate-y-0 disabled:opacity-60"
+        >
+          {!ready ? 'Loading...' : !authenticated ? 'Connect wallet to continue' : submitting ? 'Getting rate...' : 'See full comparison'}
+          <ArrowRightIcon className="h-5 w-5" />
+        </button>
+
+        <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-xs font-semibold text-[#60709A]">
+          <LockIcon className="h-3.5 w-3.5 text-[#355BFF]" />
+          Calls initiate_transfer on Solana Devnet - Rate locked
+        </p>
+      </motion.section>
     </div>
+  )
+}
+
+function ArrowRightIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <path d="M5 12h14m0 0l-6-6m6 6l-6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function LockIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+      <path d="M12 2l8 3v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V5l8-3z" />
+    </svg>
+  )
+}
+
+function UserIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M5 20a7 7 0 0114 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
   )
 }
