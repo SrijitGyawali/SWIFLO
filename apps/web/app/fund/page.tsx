@@ -3,9 +3,14 @@
 import { useSolanaWallets } from '@privy-io/react-auth'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { CurrencyConverter } from '@/components/CurrencyConverter'
 import { FaucetButton } from '@/components/FaucetButton'
 import { motion } from 'framer-motion'
 import { WalletGate } from '@/components/WalletGate'
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+
+type MintState = 'idle' | 'loading' | 'success' | 'error'
 
 export default function FundPage() {
   return (
@@ -22,6 +27,10 @@ function FundDashboard() {
   const { wallets } = useSolanaWallets()
   const router = useRouter()
   const [copied, setCopied] = useState(false)
+  const [quotedUsdc, setQuotedUsdc] = useState(0)
+  const [mintState, setMintState] = useState<MintState>('idle')
+  const [mintError, setMintError] = useState('')
+  const [mintTxUrl, setMintTxUrl] = useState('')
 
   const wallet = wallets[0]
   const address = wallet?.address ?? ''
@@ -33,6 +42,33 @@ function FundDashboard() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const handleMintQuotedUsdc = async () => {
+    if (!wallet || quotedUsdc <= 0) return
+
+    setMintState('loading')
+    setMintError('')
+    setMintTxUrl('')
+
+    try {
+      const res = await fetch(`${API}/api/faucet`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: wallet.address,
+          amount: Number(quotedUsdc.toFixed(2)),
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Mint failed')
+
+      setMintTxUrl(data.explorerUrl ?? '')
+      setMintState('success')
+    } catch (err: any) {
+      setMintError(err.message ?? 'Mint failed. Please try again.')
+      setMintState('error')
+    }
+  }
   return (
     <div className="mx-auto w-full max-w-[1104px] px-5 pb-12 pt-8 sm:px-8">
       {address && (
@@ -69,6 +105,52 @@ function FundDashboard() {
           <span className="text-sm font-semibold text-[#6F7DA8]">Recommended for testing</span>
         </div>
         <FaucetButton />
+      </motion.section>
+
+      <motion.section
+        initial={{ opacity: 0, y: 18, scale: 0.985 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.42, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+        className="mb-4 rounded-2xl border border-[#DFE8FA] bg-white/55 px-5 py-5 shadow-[0_16px_40px_-30px_rgba(17,25,54,0.35)] backdrop-blur sm:px-6"
+      >
+        <div className="mb-4">
+          <p className="text-xs font-extrabold tracking-wide text-[#61709F]">LIVE QUOTE</p>
+          <h2 className="mt-2 text-xl font-extrabold tracking-tight text-[#07133A]">Convert local currency to USDC</h2>
+          <p className="mt-1 text-sm font-semibold text-[#6F7DA8]">Select where you are based and amount, then mint USDC to your connected wallet.</p>
+        </div>
+
+        <CurrencyConverter onAmountChange={setQuotedUsdc} showFamilyReceives={false} />
+
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="rounded-xl border border-[#DFE8FA] bg-[#F7F9FF] px-4 py-3 text-sm font-bold text-[#4D5D90]">
+            Estimated purchase: <span className="text-[#2F5BFF]">{quotedUsdc > 0 ? quotedUsdc.toFixed(2) : '0.00'} USDC</span>
+          </p>
+          <button
+            onClick={handleMintQuotedUsdc}
+            disabled={mintState === 'loading' || quotedUsdc <= 0}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#2F5BFF] px-5 py-3 text-sm font-extrabold text-white shadow-[0_18px_42px_-24px_rgba(47,91,255,0.9)] transition-all hover:-translate-y-0.5 hover:bg-[#254DF0] disabled:translate-y-0 disabled:opacity-60"
+          >
+            {mintState === 'loading' ? 'Minting...' : 'Get USDC'}
+            <ChevronRightIcon className="h-4 w-4" />
+          </button>
+        </div>
+
+        {mintState === 'success' && mintTxUrl && (
+          <a
+            href={mintTxUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 block text-sm font-bold text-[#2D5BFF] hover:underline"
+          >
+            Mint complete. View transaction on Solana Explorer
+          </a>
+        )}
+
+        {mintState === 'error' && (
+          <p className="mt-4 rounded-2xl border border-[#FFD1D7] bg-[#FFF0F2] px-4 py-3 text-sm font-bold text-[#D92D43]">
+            {mintError}
+          </p>
+        )}
       </motion.section>
 
       <div className="relative my-6">
