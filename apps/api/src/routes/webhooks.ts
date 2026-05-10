@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
+import { swifloApiChainLog } from '../lib/swifloChainLog'
 import { prisma } from '../lib/prisma'
 import { handleHeliusWebhook, handleTransferInitiated } from '../services/indexer'
 import type { HeliusWebhookPayload, MtoWebhookPayload } from '@swiflo/shared'
@@ -33,6 +34,10 @@ export const webhookRoutes: FastifyPluginAsync = async (app) => {
         },
       })
 
+      if (body.solanaSignature) {
+        swifloApiChainLog('confirmDisbursement', body.solanaSignature)
+      }
+
       // Track active advances in vault
       await prisma.vaultState.upsert({
         where: { id: 'singleton' },
@@ -50,6 +55,7 @@ export const webhookRoutes: FastifyPluginAsync = async (app) => {
         where: { id: body.transferId },
         data: { status: 'FAILED' },
       })
+
     }
 
     return { ok: true }
@@ -64,6 +70,10 @@ export const webhookRoutes: FastifyPluginAsync = async (app) => {
       lockedRate: string
       solanaTxSignature: string
       senderPubkey: string
+    }
+
+    if (body.solanaTxSignature) {
+      swifloApiChainLog('initiateTransfer', body.solanaTxSignature)
     }
 
     const { id } = await handleTransferInitiated(
