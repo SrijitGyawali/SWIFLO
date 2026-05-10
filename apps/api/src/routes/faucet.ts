@@ -4,6 +4,9 @@ import {
   PublicKey,
   Keypair,
   LAMPORTS_PER_SOL,
+  Transaction,
+  SystemProgram,
+  sendAndConfirmTransaction,
 
 } from '@solana/web3.js'
 import {
@@ -29,6 +32,18 @@ function loadFaucetKeypair(): Keypair {
   const path = process.env.ANCHOR_WALLET ?? `${process.env.HOME}/.config/solana/id.json`
   if (!fs.existsSync(path)) return Keypair.generate()
   return Keypair.fromSecretKey(Buffer.from(JSON.parse(fs.readFileSync(path, 'utf-8'))))
+}
+
+function loadFallbackSolKeypair(): Keypair | null {
+  const raw = process.env.SOL_FALLBACK_SECRET_KEY
+  if (!raw) return null
+
+  try {
+    return Keypair.fromSecretKey(Buffer.from(JSON.parse(raw)))
+  } catch (err) {
+    console.warn('[faucet] invalid SOL_FALLBACK_SECRET_KEY', err)
+    return null
+  }
 }
 
 export const faucetRoutes: FastifyPluginAsync = async (app) => {
@@ -66,8 +81,24 @@ export const faucetRoutes: FastifyPluginAsync = async (app) => {
       try {
         const sig = await connection.requestAirdrop(userPubkey, AIRDROP_SOL)
         await connection.confirmTransaction(sig, 'confirmed')
-      } catch {
-        app.log.warn('SOL airdrop failed (devnet rate limit?) — continuing')
+        app.log.info({ walletAddress, sig }, 'SOL airdrop sent to connected wallet')
+      } catch (airdropErr) {
+        app.log.warn({ walletAddress, airdropErr }, 'SOL airdrop failed, trying fallback transfer')
+        const fallback = loadFallbackSolKeypair()
+        if (!fallback) {
+          throw airdropErr
+        }
+
+        const tx = new Transaction().add(
+          SystemProgram.transfer({
+            fromPubkey: fallback.publicKey,
+            toPubkey: userPubkey,
+            lamports: AIRDROP_SOL,
+          })
+        )
+
+        const sig = await sendAndConfirmTransaction(connection, tx, [fallback], { commitment: 'confirmed' })
+        app.log.info({ walletAddress, sig, fallback: fallback.publicKey.toBase58() }, 'SOL fallback transfer sent to connected wallet')
       }
 
       // 2. Get/create user USDC ATA (faucet pays rent)
