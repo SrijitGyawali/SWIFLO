@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePrivy } from '@privy-io/react-auth'
 import { useSolanaWallets } from '@privy-io/react-auth'
+import type { ReactElement } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { Connection, PublicKey } from '@solana/web3.js'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -372,7 +373,7 @@ export function Navbar() {
 type NavLink = {
   href: string
   label: string
-  Icon: (props: { className?: string }) => JSX.Element
+  Icon: (props: { className?: string }) => ReactElement
 }
 
 function HamburgerIcon({ className = '' }: { className?: string }) {
@@ -490,3 +491,4 @@ function NavWalletIcon({ className = '' }: { className?: string }) {
     </svg>
   )
 }
+

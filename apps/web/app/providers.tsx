@@ -14,7 +14,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
         loginMethods: ['email', 'sms', 'wallet'],
         embeddedWallets: {
-          solana: { createOnLogin: 'all-users' },
+          createOnLogin: 'all-users',
           showWalletUIs: false,
           noPromptOnSignature: true,
         },
@@ -27,3 +27,4 @@ export function Providers({ children }: { children: React.ReactNode }) {
     </PrivyProvider>
   )
 }
+
