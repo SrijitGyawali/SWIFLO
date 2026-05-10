@@ -16,7 +16,7 @@ import {
 import fs from 'fs'
 
 const AIRDROP_SOL   = 0.1 * LAMPORTS_PER_SOL
-const RATE_LIMIT_MS = 60_000
+const RATE_LIMIT_MS = 5_000
 
 // Standard devnet dummy USDC — pre-fund faucet ATA before demo
 const TEST_USDC_MINT = new PublicKey(
@@ -60,7 +60,7 @@ export const faucetRoutes: FastifyPluginAsync = async (app) => {
       // Rate limit per wallet
       const last = recentRequests.get(walletAddress)
       if (last && Date.now() - last < RATE_LIMIT_MS) {
-        return reply.code(429).send({ error: 'Wait 60 seconds between faucet requests' })
+        return reply.code(429).send({ error: 'Wait 5 seconds between faucet requests' })
       }
       recentRequests.set(walletAddress, Date.now())
 
@@ -78,12 +78,18 @@ export const faucetRoutes: FastifyPluginAsync = async (app) => {
       const faucet = loadFaucetKeypair()
 
       // 1. Airdrop SOL for fees
+      let solTopUpMethod: 'airdrop' | 'fallback' | 'none' = 'none'
+      let solTopUpSignature = ''
       try {
+        const balanceBefore = await connection.getBalance(userPubkey)
         const sig = await connection.requestAirdrop(userPubkey, AIRDROP_SOL)
         await connection.confirmTransaction(sig, 'confirmed')
-        app.log.info({ walletAddress, sig }, 'SOL airdrop sent to connected wallet')
+        solTopUpMethod = 'airdrop'
+        solTopUpSignature = sig
+        const balanceAfter = await connection.getBalance(userPubkey)
+        app.log.info({ walletAddress, balanceBefore, balanceAfter, sig }, 'SOL airdrop sent to connected wallet')
       } catch (airdropErr) {
-        app.log.warn({ walletAddress, airdropErr }, 'SOL airdrop failed, trying fallback transfer')
+        app.log.warn({ airdropErr }, 'SOL airdrop failed, trying fallback transfer')
         const fallback = loadFallbackSolKeypair()
         if (!fallback) {
           throw airdropErr
@@ -98,8 +104,14 @@ export const faucetRoutes: FastifyPluginAsync = async (app) => {
         )
 
         const sig = await sendAndConfirmTransaction(connection, tx, [fallback], { commitment: 'confirmed' })
-        app.log.info({ walletAddress, sig, fallback: fallback.publicKey.toBase58() }, 'SOL fallback transfer sent to connected wallet')
+        solTopUpMethod = 'fallback'
+        solTopUpSignature = sig
+        const balanceAfter = await connection.getBalance(userPubkey)
+        app.log.info({ sig, fallback: fallback.publicKey.toBase58(), balanceAfter }, 'SOL fallback transfer sent to connected wallet')
       }
+
+      const finalBalance = await connection.getBalance(userPubkey)
+      app.log.info({ walletAddress, solTopUpMethod, solTopUpSignature, finalBalance }, 'SOL top-up verification complete')
 
       // 2. Get/create user USDC ATA (faucet pays rent)
       const userAta = await getOrCreateAssociatedTokenAccount(
