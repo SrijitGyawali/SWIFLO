@@ -32,6 +32,7 @@ export function FaucetButton() {
       if (!res.ok) throw new Error(data.error ?? 'Faucet failed')
       setTxUrl(data.explorerUrl)
       setState('success')
+      window.dispatchEvent(new Event('swiflo:faucet-complete'))
     } catch (e: any) {
       setError(e.message)
       setState('error')
@@ -49,7 +50,7 @@ export function FaucetButton() {
         <div>
           <p className="text-xl font-extrabold tracking-tight text-[#07133A]">Get test USDC</p>
           <p className="mt-1 inline-flex items-center gap-2 text-sm font-semibold text-[#2D5BFF]">
-            Devnet only · 0.1 SOL included for fees
+            Devnet only · SOL is topped up automatically when needed
             <InfoIcon className="h-4 w-4" />
           </p>
         </div>
