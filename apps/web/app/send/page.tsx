@@ -43,6 +43,21 @@ type ExchangeRateData = {
   cachedAt: string
 }
 
+type VaultState = {
+  totalLiquidity: string
+  activeAdvances: string
+}
+
+function formatUsdcBaseUnits(amount: bigint): string {
+  const zero = BigInt(0)
+  const decimals = BigInt(1_000_000)
+  const sign = amount < zero ? '-' : ''
+  const abs = amount < zero ? -amount : amount
+  const whole = abs / decimals
+  const fraction = (abs % decimals).toString().padStart(6, '0').replace(/0+$/, '')
+  return `${sign}${whole.toLocaleString('en-US')}${fraction ? `.${fraction}` : ''}`
+}
+
 function buildInitiateTransferIx(
   programId: PublicKey,
   poolPda: PublicKey,
@@ -185,6 +200,25 @@ function SendDashboard() {
     if (!validate() || usdcNum <= 0) return
     setSubmitting(true)
     try {
+      const amountLamports = BigInt(Math.round(usdcNum * 1_000_000))
+      const requiredVaultLiquidity = (amountLamports * BigInt(9_960)) / BigInt(10_000)
+      const vaultRes = await fetch(`${API}/api/vault/state`, { cache: 'no-store' })
+      const vaultState = await vaultRes.json() as VaultState & { error?: string }
+      if (!vaultRes.ok) throw new Error(vaultState.error ?? 'Failed to check vault liquidity')
+
+      const totalLiquidity = BigInt(vaultState.totalLiquidity ?? '0')
+      const activeAdvances = BigInt(vaultState.activeAdvances ?? '0')
+      const availableLiquidity = totalLiquidity > activeAdvances ? totalLiquidity - activeAdvances : BigInt(0)
+
+      if (requiredVaultLiquidity > availableLiquidity) {
+        const maxSendBaseUnits = (availableLiquidity * BigInt(10_000)) / BigInt(9_960)
+        throw new Error(
+          `Not enough liquidity in the vault. Available: ${formatUsdcBaseUnits(availableLiquidity)} USDC. ` +
+          `This transfer needs ${formatUsdcBaseUnits(requiredVaultLiquidity)} USDC. ` +
+          `Try ${formatUsdcBaseUnits(maxSendBaseUnits)} USDC or less.`,
+        )
+      }
+
       const estimateRes = await fetch(`${API}/api/transfers/estimate`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -213,7 +247,6 @@ function SendDashboard() {
       const [transferPda] = PublicKey.findProgramAddressSync([Buffer.from('transfer'), seqBuf], programId)
 
       const senderUsdc = await getAssociatedTokenAddress(usdcMint, senderPubkey)
-      const amountLamports = BigInt(Math.round(usdcNum * 1_000_000))
       const lockedRateScaled = BigInt(Math.round((estimate.lockedRate ?? nprPerUsd) * 1_000_000))
       const recipientHash = new Uint8Array(32)
 
