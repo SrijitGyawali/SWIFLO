@@ -65,7 +65,7 @@ async function fetchUSDCBalance(address: string): Promise<number> {
 
 export function Navbar() {
   const { ready, authenticated, login, logout } = usePrivy()
-  const { wallets, createWallet } = useSolanaWallets()
+  const { wallets } = useSolanaWallets()
   const [copied, setCopied] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [holdingsLoading, setHoldingsLoading] = useState(false)
@@ -109,20 +109,6 @@ export function Navbar() {
     }
   }
 
-  useEffect(() => {
-    console.debug('Navbar state', { ready, authenticated, walletsLength: wallets.length })
-    if (!ready) return
-    if (!authenticated) return
-    if (wallets.length > 0) return
-    createWallet().catch((err: any) => {
-      const msg = String(err?.message ?? err)
-      if (msg.includes('User already has an embedded wallet')) {
-        console.debug('Navbar: createWallet skipped — embedded wallet already exists')
-        return
-      }
-      console.error('Navbar createWallet failed', err)
-    })
-  }, [authenticated, wallets.length])
 
   useEffect(() => {
     console.debug('Navbar wallets changed', { ready, authenticated, walletsLength: wallets.length, address: wallets[0]?.address })
@@ -490,3 +476,4 @@ function NavWalletIcon({ className = '' }: { className?: string }) {
     </svg>
   )
 }
+
