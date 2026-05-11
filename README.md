@@ -22,7 +22,6 @@ Swiflo uses USDC on Solana as the transfer rail. A Gulf worker deposits USDC, si
 
 **Implemented in this repo today:** on-chain escrow (`initiateTransfer`), vault advance to MTO (`advanceToMto`), MTO disbursement confirmation (`confirmDisbursement`), and settler lifecycle (`settleTransfer` + `replenishVault` + `collectFees`).
 
-**Not yet live-integrated in this repo:** direct Bridge.xyz / Thunes API execution (currently represented as internal async settlement behavior in the demo narrative).
 
 ## What Our Product Does
 
