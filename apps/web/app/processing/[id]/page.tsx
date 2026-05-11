@@ -160,7 +160,6 @@ function ProcessingContent() {
               <InfoRow label="Transfer Amount" value={amountUsdc ? `${Number(amountUsdc).toLocaleString('en-IN')} USDC` : 'Calculating'} />
               <InfoRow label="Recipient Gets" value={`Rs ${Number(amountNpr).toLocaleString('en-IN')}`} />
               <InfoRow label="Network Fee" value="0.4%" />
-              <InfoRow label="Saved" value={`Rs ${Number(savingsNpr).toLocaleString('en-IN')}`} success />
             </div>
           </div>
 
@@ -265,11 +264,11 @@ function TransferOrbit() {
   )
 }
 
-function InfoRow({ label, value, success = false }: { label: string; value: string; success?: boolean }) {
+function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between rounded-2xl border border-[#DCE6FF] bg-white/70 px-4 py-3">
       <span className="text-sm font-bold text-[#60709A]">{label}</span>
-      <span className={`text-sm font-extrabold ${success ? 'text-[#00B879]' : 'text-[#07133A]'}`}>{value}</span>
+      <span className="text-sm font-extrabold text-[#07133A]">{value}</span>
     </div>
   )
 }

@@ -356,10 +356,11 @@ function InfrastructureRow() {
         BUILT ON BEST-IN-CLASS INFRASTRUCTURE
       </p>
       <div className="mx-auto mt-5 flex max-w-3xl flex-wrap items-center justify-center gap-x-10 gap-y-3 rounded-full border border-white/70 bg-white/70 px-8 py-4 shadow-[0_10px_30px_-10px_rgba(11,11,20,0.08)] backdrop-blur">
-        <BrandPill name="Phantom" icon={<PhantomIcon className="h-5 w-5 text-[#7B61FF]" />} />
+        <BrandPill name="Privy" icon={<PrivyIcon className="h-5 w-5 text-[#5B5EF7]" />} />
         <BrandPill name="Solana" icon={<SolanaMark className="h-5 w-5" />} />
-        <BrandPill name="CoinBase" icon={<CoinbaseIcon className="h-5 w-5 text-[#1652F0]" />} />
-        <BrandPill name="Turnkey" icon={<TurnkeyIcon className="h-5 w-5 text-[#0A0F1F]" />} />
+        <BrandPill name="Bridge" icon={<BridgeIcon className="h-5 w-5 text-[#1652F0]" />} />
+        <BrandPill name="Thunes" icon={<ThunesIcon className="h-5 w-5 text-[#0A0F1F]" />} />
+        <BrandPill name="Onramper" icon={<OnramperIcon className="h-5 w-5 text-[#8B35FF]" />} />
       </div>
     </motion.div>
   )
@@ -404,6 +405,43 @@ function ArrowRightIcon({ className = '' }: { className?: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  )
+}
+
+function PrivyIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <rect x="4" y="5" width="16" height="14" rx="4" fill="currentColor" opacity="0.16" />
+      <path d="M8 12.5l2.4 2.4L16.5 8.8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function BridgeIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <path d="M5 15c1.5-4 4-6 7-6s5.5 2 7 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M4 16h16M7 16v3m5-3v3m5-3v3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function ThunesIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="2" />
+      <path d="M8 12h8M12 8v8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function OnramperIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <path d="M6 15l4-6 4 6 4-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="6" cy="15" r="2" fill="currentColor" />
+      <circle cx="18" cy="9" r="2" fill="currentColor" />
     </svg>
   )
 }

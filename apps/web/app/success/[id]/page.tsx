@@ -17,7 +17,6 @@ function SuccessContent() {
   const { id } = useParams<{ id: string }>()
   const params = useSearchParams()
   const router = useRouter()
-  const savingsNpr = parseInt(params.get('savingsNpr') ?? '0')
   const amountNpr = parseInt(params.get('amountNpr') ?? '0')
   const phone = params.get('phone') ?? ''
 
@@ -85,7 +84,6 @@ function SuccessContent() {
           <div className="mt-8 overflow-hidden rounded-[24px] border border-[#DCE6FF] bg-white/72 shadow-[0_28px_80px_-52px_rgba(47,91,255,0.8)] backdrop-blur">
             <SummaryRow icon={<WalletIcon className="h-5 w-5" />} label="Recipient receives" value={`Rs ${amountNpr.toLocaleString('en-IN')}`} />
             <SummaryRow icon={<ShieldIcon className="h-5 w-5" />} label="Network fee" value="0.4%" />
-            <SummaryRow icon={<SparkIcon className="h-5 w-5" />} label="Saved vs Western Union" value={`Rs ${savingsNpr.toLocaleString('en-IN')}`} success />
           </div>
 
           {explorerUrl ? (
@@ -265,10 +263,3 @@ function ShieldIcon({ className = '' }: { className?: string }) {
   )
 }
 
-function SparkIcon({ className = '' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
-      <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    </svg>
-  )
-}
