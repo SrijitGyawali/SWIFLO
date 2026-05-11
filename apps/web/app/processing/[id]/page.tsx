@@ -58,14 +58,11 @@ function ProcessingContent() {
       } catch {}
     }, 3000)
 
-    // Simulate progress for demo when API isn't connected
+    // Keep the journey feeling alive while the API confirms real delivery.
     const demo = setTimeout(() => setStep(2), 2000)
     const demo2 = setTimeout(() => setStep(3), 5000)
-    const demo3 = setTimeout(() => {
-      router.push(`/success/${id}?savingsNpr=${savingsNpr}&amountNpr=${amountNpr}&phone=${encodeURIComponent(phone)}`)
-    }, 8000)
 
-    return () => { clearInterval(interval); clearTimeout(demo); clearTimeout(demo2); clearTimeout(demo3) }
+    return () => { clearInterval(interval); clearTimeout(demo); clearTimeout(demo2) }
   }, [id, router, savingsNpr, amountNpr, phone])
 
   return (

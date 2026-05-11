@@ -9,6 +9,8 @@ export async function notifyMTO(params: {
   lockedRate: string
   reference: string
 }): Promise<void> {
+  console.log(`[mto-client] notifying MTO at ${MTO_URL}/api/mto/disburse for transfer ${params.transferId}`)
+
   const res = await fetch(`${MTO_URL}/api/mto/disburse`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -19,4 +21,6 @@ export async function notifyMTO(params: {
     const text = await res.text()
     throw new Error(`MTO notification failed: ${res.status} ${text}`)
   }
+
+  console.log(`[mto-client] MTO accepted disbursement for transfer ${params.transferId}`)
 }
