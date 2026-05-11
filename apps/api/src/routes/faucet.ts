@@ -15,7 +15,7 @@ import {
 } from '@solana/spl-token'
 import fs from 'fs'
 
-const AIRDROP_SOL   = 0.1 * LAMPORTS_PER_SOL
+const AIRDROP_SOL   = 1 * LAMPORTS_PER_SOL
 const RATE_LIMIT_MS = 5_000
 
 // Standard devnet dummy USDC — pre-fund faucet ATA before demo
