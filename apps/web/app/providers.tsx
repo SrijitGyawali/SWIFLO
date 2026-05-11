@@ -2,6 +2,7 @@
 
 import { PrivyProvider } from '@privy-io/react-auth'
 import { defaultSolanaRpcsPlugin } from '@privy-io/react-auth/solana'
+import { flushAllTraces } from 'next/dist/trace'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -18,7 +19,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           solana: {
             createOnLogin: 'users-without-wallets',
           },
-          showWalletUIs: true,
+          showWalletUIs: false,
         },
         plugins: [defaultSolanaRpcsPlugin()],
       }}
