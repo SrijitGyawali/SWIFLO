@@ -242,7 +242,7 @@ LP depositor
 
 | Program | Address | Purpose |
 |---|---|---|
-| remittance_pool | `6M9yzRSkn5c94dAvE8v9YJMGyoqHQKEurDTrM8AerQ56` | Receives USDC from senders, escrows funds, tracks transfer state |
+| remittance_pool | `GKWPTDkKS2jDrE3gkWWoTtbHnwaiqZwc8iM47QGsJ9mJ` | Receives USDC from senders, escrows funds, tracks transfer state |
 | liquidity_vault | `13BEbXJJ2aLQ6yMQA9QdtwguL2rDKdzsVBZNEbATwBhN` | LP deposits, advances to MTO, fee collection, rewards |
 
 **SWI Token (test USDC):** `2Mfg6KX5hthtYnX8vAyqXreJtrYbxot5pbEzcyMpZGZx`
