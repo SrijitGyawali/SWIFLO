@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePrivy } from '@privy-io/react-auth'
 import { useSolanaWallets } from '@privy-io/react-auth'
+import { useCreateWallet } from '@privy-io/react-auth'
 import type { ReactElement } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { Connection, PublicKey } from '@solana/web3.js'
@@ -65,6 +66,7 @@ async function fetchUSDCBalance(address: string): Promise<number> {
 
 export function Navbar() {
   const { ready, authenticated, login, logout } = usePrivy()
+  const { createWallet } = useCreateWallet()
   const { wallets } = useSolanaWallets()
   const [copied, setCopied] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -159,11 +161,16 @@ export function Navbar() {
     login({ loginMethods: ['email', 'sms'] })
   }
 
-  const handleResetWalletSession = async () => {
+  const handleFinishWalletSetup = async () => {
     if (!ready) return
     setSidebarOpen(false)
-    await logout()
-    window.location.reload()
+    try {
+      await createWallet()
+    } catch (error) {
+      console.error('Privy wallet creation failed from navbar', error)
+      await logout()
+      window.location.reload()
+    }
   }
 
   const navLinks: NavLink[] = [
@@ -252,11 +259,11 @@ export function Navbar() {
             </button>
           ) : ready && authenticated ? (
             <button
-              onClick={handleResetWalletSession}
+              onClick={handleFinishWalletSetup}
               className="inline-flex items-center gap-2 rounded-full bg-[#1A2BE0] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_-10px_rgba(26,43,224,0.7)] transition-all hover:-translate-y-0.5 hover:bg-[#2236E8] hover:shadow-[0_16px_30px_-12px_rgba(26,43,224,0.8)]"
             >
               <NavWalletIcon className="h-4 w-4" />
-              Reset Wallet
+              Finish Wallet
             </button>
           ) : (
             <button
@@ -352,12 +359,12 @@ export function Navbar() {
                   <button
                     onClick={() => {
                       setMobileOpen(false)
-                      void handleResetWalletSession()
+                      void handleFinishWalletSetup()
                     }}
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1A2BE0] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-10px_rgba(26,43,224,0.7)] transition-colors hover:bg-[#2236E8]"
                   >
                     <NavWalletIcon className="h-4 w-4" />
-                    Reset Wallet
+                    Finish Wallet
                   </button>
                 ) : (
                   <button

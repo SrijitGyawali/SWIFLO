@@ -1,7 +1,8 @@
 'use client'
 
-import { usePrivy, useSolanaWallets } from '@privy-io/react-auth'
+import { useCreateWallet, usePrivy, useSolanaWallets } from '@privy-io/react-auth'
 import { motion } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
 
 type WalletGateProps = {
   children: React.ReactNode
@@ -15,14 +16,37 @@ export function WalletGate({
   description = 'Connect your wallet to access this Swiflo dashboard.',
 }: WalletGateProps) {
   const { ready, authenticated, login, logout } = usePrivy()
+  const { createWallet } = useCreateWallet()
   const { wallets } = useSolanaWallets()
   const address = wallets[0]?.address
+  const attemptedWalletCreate = useRef(false)
+  const [walletSetupLoading, setWalletSetupLoading] = useState(false)
+  const [walletSetupError, setWalletSetupError] = useState('')
 
   const loginWithEmail = () => login({ loginMethods: ['email', 'sms'] })
+  const finishWalletSetup = async () => {
+    if (walletSetupLoading) return
+    setWalletSetupLoading(true)
+    setWalletSetupError('')
+    try {
+      await createWallet()
+    } catch (error) {
+      console.error('Privy wallet creation failed', error)
+      setWalletSetupError('Privy could not create the wallet for this login. Reset the session once and connect again.')
+    } finally {
+      setWalletSetupLoading(false)
+    }
+  }
   const resetWalletSession = async () => {
     await logout()
     window.location.reload()
   }
+
+  useEffect(() => {
+    if (!ready || !authenticated || address || attemptedWalletCreate.current) return
+    attemptedWalletCreate.current = true
+    void finishWalletSetup()
+  }, [ready, authenticated, address])
 
   if (!ready) {
     return (
@@ -79,18 +103,32 @@ export function WalletGate({
           <div className="relative mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-3xl border border-[#DCE6FF] bg-[#F7FAFF] text-[#2F5BFF] shadow-[0_18px_45px_-28px_rgba(47,91,255,0.85)]">
             <div className="h-8 w-8 animate-pulse rounded-full border-2 border-[#BFD0FF] bg-white" />
           </div>
-          <h1 className="relative text-3xl font-extrabold tracking-tight text-[#07133A]">Wallet setup did not finish</h1>
+          <h1 className="relative text-3xl font-extrabold tracking-tight text-[#07133A]">
+            {walletSetupLoading ? 'Creating your wallet' : 'Wallet setup needs one more step'}
+          </h1>
           <p className="relative mx-auto mt-3 max-w-sm text-sm font-semibold leading-relaxed text-[#6F7DA8]">
-            You are signed in, but Privy has not returned a Solana wallet address yet. Reset the session, then connect again.
+            {walletSetupError || 'You are signed in. We are finishing the Solana wallet setup for this account.'}
           </p>
-          <button
-            type="button"
-            onClick={resetWalletSession}
-            className="relative mt-8 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#2F5BFF] px-6 py-4 text-base font-extrabold text-white shadow-[0_18px_45px_-22px_rgba(47,91,255,0.9)] transition-all hover:-translate-y-0.5 hover:bg-[#254DF0] sm:w-auto"
-          >
-            Reset wallet session
-            <ArrowRightIcon className="h-5 w-5" />
-          </button>
+          <div className="relative mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={finishWalletSetup}
+              disabled={walletSetupLoading}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#2F5BFF] px-6 py-4 text-base font-extrabold text-white shadow-[0_18px_45px_-22px_rgba(47,91,255,0.9)] transition-all hover:-translate-y-0.5 hover:bg-[#254DF0] disabled:cursor-wait disabled:opacity-75 sm:w-auto"
+            >
+              {walletSetupLoading ? 'Setting up wallet...' : 'Finish wallet setup'}
+              <ArrowRightIcon className="h-5 w-5" />
+            </button>
+            {walletSetupError ? (
+              <button
+                type="button"
+                onClick={resetWalletSession}
+                className="inline-flex w-full items-center justify-center rounded-2xl border border-[#DCE6FF] bg-white/80 px-6 py-4 text-base font-extrabold text-[#2F5BFF] transition-colors hover:bg-[#F7FAFF] sm:w-auto"
+              >
+                Reset session
+              </button>
+            ) : null}
+          </div>
         </motion.section>
       </main>
     )
