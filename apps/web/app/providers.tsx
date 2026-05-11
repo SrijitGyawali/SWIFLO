@@ -1,6 +1,7 @@
 'use client'
 
 import { PrivyProvider } from '@privy-io/react-auth'
+import { defaultSolanaRpcsPlugin } from '@privy-io/react-auth/solana'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -19,6 +20,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           },
           showWalletUIs: true,
         },
+        plugins: [defaultSolanaRpcsPlugin()],
       }}
     >
       {children}
