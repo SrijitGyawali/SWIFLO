@@ -61,10 +61,10 @@ const INITIATE_TRANSFER_DISC = crypto.createHash('sha256')
 const CONFIRM_DISBURSEMENT_DISC = Buffer.from([157, 26, 17, 151, 82, 205, 12, 37])
 
 const COLLECT_FEES_DISC = Buffer.from([164, 152, 207, 99, 30, 186, 19, 182])
-const CLAIM_YIELD_DISC = Buffer.from([49, 74, 111, 7, 186, 22, 61, 165])
 
 const connection = new Connection(RPC, 'confirmed')
 
+const CLAIM_YIELD_DISC = Buffer.from([49, 74, 111, 7, 186, 22, 61, 165])
 const GET_TX_OPTS = {
   commitment: 'confirmed' as const,
   maxSupportedTransactionVersion: 0,

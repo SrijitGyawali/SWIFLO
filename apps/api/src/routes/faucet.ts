@@ -17,7 +17,7 @@ import fs from 'fs'
 
 const AIRDROP_SOL   = 1 * LAMPORTS_PER_SOL
 const RATE_LIMIT_MS = 5_000
-
+ 
 // Standard devnet dummy USDC — pre-fund faucet ATA before demo
 const TEST_USDC_MINT = new PublicKey(
   process.env.TEST_USDC_MINT ?? 'Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr'
@@ -141,10 +141,10 @@ export const faucetRoutes: FastifyPluginAsync = async (app) => {
       return {
         success: true,
         swiReceived: amount,
-        solReceived: AIRDROP_SOL / LAMPORTS_PER_SOL,
+        solReceived: 1,
         txSignature,
         explorerUrl: `https://explorer.solana.com/tx/${txSignature}?cluster=devnet`,
       }
-    }
+    } 
   )
 }
