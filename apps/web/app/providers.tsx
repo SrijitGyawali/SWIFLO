@@ -14,9 +14,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
         loginMethods: ['email', 'sms'],
         embeddedWallets: {
-          createOnLogin: 'users-without-wallets',
+          solana: {
+            createOnLogin: 'users-without-wallets',
+          },
           showWalletUIs: true,
-          noPromptOnSignature: true,
         },
       }}
     >

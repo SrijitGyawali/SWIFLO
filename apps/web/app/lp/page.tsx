@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, type ReactNode } from 'react'
-import { useSolanaWallets } from '@privy-io/react-auth'
+import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana'
 import {
   Connection, PublicKey, Transaction, TransactionInstruction,
 } from '@solana/web3.js'
@@ -157,7 +157,13 @@ function LpDashboard() {
       const amountRaw = BigInt(Math.round(amt * 1_000_000))
       tx.add(buildDepositIx(vaultPda, userPubkey, userSwi, userLpAta, amountRaw))
 
-      const sig = await wallet.sendTransaction(tx, connection)
+      const { signedTransaction } = await wallet.signTransaction({
+        transaction: tx.serialize({ requireAllSignatures: false, verifySignatures: false }),
+        chain: 'solana:devnet',
+      })
+      const sig = await connection.sendRawTransaction(Buffer.from(signedTransaction), {
+        preflightCommitment: 'confirmed',
+      })
       await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed')
       setSuccess(`Deposited ${amt} USDC - tx: ${sig.slice(0, 16)}...`)
       setDepositAmt('')
@@ -214,7 +220,13 @@ function LpDashboard() {
 
       tx.add(buildClaimIx(vaultPda, userPubkey, userSwi, userLpAta, lpTokensRaw))
 
-      const sig = await wallet.sendTransaction(tx, connection)
+      const { signedTransaction } = await wallet.signTransaction({
+        transaction: tx.serialize({ requireAllSignatures: false, verifySignatures: false }),
+        chain: 'solana:devnet',
+      })
+      const sig = await connection.sendRawTransaction(Buffer.from(signedTransaction), {
+        preflightCommitment: 'confirmed',
+      })
       await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed')
       setSuccess(`Withdrew ${amt} USDC - tx: ${sig.slice(0, 16)}...`)
       setWithdrawAmt('')

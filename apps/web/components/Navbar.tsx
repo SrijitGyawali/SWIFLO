@@ -2,8 +2,7 @@
 
 import Link from 'next/link'
 import { usePrivy } from '@privy-io/react-auth'
-import { useSolanaWallets } from '@privy-io/react-auth'
-import { useCreateWallet } from '@privy-io/react-auth'
+import { useCreateWallet, useWallets as useSolanaWallets } from '@privy-io/react-auth/solana'
 import type { ReactElement } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { Connection, PublicKey } from '@solana/web3.js'

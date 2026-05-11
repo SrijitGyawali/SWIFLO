@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useSolanaWallets } from '@privy-io/react-auth'
+import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 

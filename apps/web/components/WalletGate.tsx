@@ -1,6 +1,7 @@
 'use client'
 
-import { useCreateWallet, usePrivy, useSolanaWallets } from '@privy-io/react-auth'
+import { usePrivy } from '@privy-io/react-auth'
+import { useCreateWallet, useWallets as useSolanaWallets } from '@privy-io/react-auth/solana'
 import { motion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 

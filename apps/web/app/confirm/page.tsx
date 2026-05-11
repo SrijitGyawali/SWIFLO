@@ -2,7 +2,7 @@
 
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Suspense, useState } from 'react'
-import { useSolanaWallets } from '@privy-io/react-auth'
+import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana'
 import {
   Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction,
 } from '@solana/web3.js'
@@ -122,7 +122,13 @@ function ConfirmContent() {
       tx.feePayer = senderPubkey
       tx.add(ix)
 
-      const signature = await wallet.sendTransaction(tx, connection)
+      const { signedTransaction } = await wallet.signTransaction({
+        transaction: tx.serialize({ requireAllSignatures: false, verifySignatures: false }),
+        chain: 'solana:devnet',
+      })
+      const signature = await connection.sendRawTransaction(Buffer.from(signedTransaction), {
+        preflightCommitment: 'confirmed',
+      })
       await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
       console.log(`[swiflo-api] initiateTransfer on-chain: ${signature}`)
 

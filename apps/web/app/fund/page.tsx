@@ -1,6 +1,6 @@
 'use client'
 
-import { useSolanaWallets } from '@privy-io/react-auth'
+import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { CurrencyConverter } from '@/components/CurrencyConverter'
