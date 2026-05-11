@@ -141,7 +141,7 @@ export const faucetRoutes: FastifyPluginAsync = async (app) => {
       return {
         success: true,
         swiReceived: amount,
-        solReceived: 0.1,
+        solReceived: AIRDROP_SOL / LAMPORTS_PER_SOL,
         txSignature,
         explorerUrl: `https://explorer.solana.com/tx/${txSignature}?cluster=devnet`,
       }
