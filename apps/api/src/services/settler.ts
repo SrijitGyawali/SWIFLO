@@ -1,6 +1,7 @@
 import cron from 'node-cron'
 import { prisma } from '../lib/prisma'
 import { swifloApiChainLog } from '../lib/swifloChainLog'
+import { logBox } from '../lib/structuredLog'
 import {
   settleTransfer,
   decrementVaultAdvances,
@@ -12,6 +13,12 @@ import {
 
 // 30s for hackathon demo; change to 172800 (2 days) for production
 const SETTLEMENT_DELAY_SECONDS = 30
+
+function formatTokenUnits(amount: bigint): string {
+  const whole = amount / 1_000_000n
+  const fraction = (amount % 1_000_000n).toString().padStart(6, '0').replace(/0+$/, '')
+  return fraction ? `${whole}.${fraction}` : whole.toString()
+}
 
 function labelToInstruction(label: string): string {
   const snake: Record<string, string> = {
@@ -43,7 +50,10 @@ async function printTransferChainTxLogs(onChainTransferId: bigint): Promise<void
       swifloApiChainLog(labelToInstruction(c.label), c.signature)
     }
   } catch (err) {
-    console.error(`[settler] failed to log chain history for transfer ${onChainTransferId}`, err)
+    logBox('SWIFLO API', 'SETTLEMENT HISTORY LOG FAILED', {
+      onChainTransferId,
+      error: err instanceof Error ? err.message : String(err),
+    })
   }
 }
 
@@ -64,21 +74,48 @@ export function startSettlementScheduler(): void {
 
     for (const transfer of pending) {
       try {
+        logBox('SWIFLO API', 'SETTLEMENT STARTED', {
+          transferId: transfer.id,
+          onChainTransferId: transfer.transferId,
+          amountUsdc: formatTokenUnits(BigInt(transfer.amountUsdc)),
+          feeBps: transfer.feeBps,
+        })
+
         const onChainStatus = await getOnChainTransferStatus(transfer.transferId)
         if (onChainStatus === 'SETTLED') {
           await prisma.transfer.update({
             where: { id: transfer.id },
             data: { status: 'SETTLED', settledAt: new Date() },
           })
+          logBox('SWIFLO API', 'SETTLEMENT ALREADY COMPLETE', {
+            transferId: transfer.id,
+            onChainTransferId: transfer.transferId,
+            action: 'replaying chain transaction logs',
+          })
           await printTransferChainTxLogs(BigInt(transfer.transferId))
           continue
         }
 
-        if (onChainStatus !== 'DISBURSED') continue
+        if (onChainStatus !== 'DISBURSED') {
+          logBox('SWIFLO API', 'SETTLEMENT SKIPPED', {
+            transferId: transfer.id,
+            onChainTransferId: transfer.transferId,
+            onChainStatus,
+          })
+          continue
+        }
 
         // Call settle_transfer on-chain: moves SWI from pool escrow → vault
         const settleSig = await settleTransfer(transfer.transferId)
         swifloApiChainLog('settleTransfer', settleSig)
+        logBox('SWIFLO API', 'POOL REIMBURSEMENT COMPLETE', {
+          transferId: transfer.id,
+          onChainTransferId: transfer.transferId,
+          amountUsdc: formatTokenUnits(BigInt(transfer.amountUsdc)),
+          from: 'pool escrow',
+          to: 'vault',
+          signature: settleSig,
+        })
 
         // Vault replenish_vault (decrementVaultAdvances): drops active_advances on-chain after settle.
         try {
@@ -86,8 +123,18 @@ export function startSettlementScheduler(): void {
           const advanceAmt = (BigInt(transfer.amountUsdc) * (10_000n - feeBps)) / 10_000n
           const sig = await decrementVaultAdvances(BigInt(transfer.transferId), advanceAmt)
           swifloApiChainLog('replenishVault', sig)
+          logBox('SWIFLO API', 'VAULT REIMBURSEMENT ACCOUNTING COMPLETE', {
+            transferId: transfer.id,
+            onChainTransferId: transfer.transferId,
+            activeAdvancesReducedUsdc: formatTokenUnits(advanceAmt),
+            signature: sig,
+          })
         } catch (err) {
-          console.error(`[settler] replenishVault / decrementVaultAdvances failed for ${transfer.transferId}`, err)
+          logBox('SWIFLO API', 'VAULT REIMBURSEMENT ACCOUNTING FAILED', {
+            transferId: transfer.id,
+            onChainTransferId: transfer.transferId,
+            error: err instanceof Error ? err.message : String(err),
+          })
         }
 
         // Vault collect_fees → treasury
@@ -96,9 +143,20 @@ export function startSettlementScheduler(): void {
           if (treasuryAmt > 0n) {
             const sig = await collectFees(treasuryAmt)
             swifloApiChainLog('collectFees', sig)
+            logBox('SWIFLO API', 'FEE COLLECTION COMPLETE', {
+              transferId: transfer.id,
+              onChainTransferId: transfer.transferId,
+              treasuryAmountUsdc: formatTokenUnits(treasuryAmt),
+              to: 'treasury',
+              signature: sig,
+            })
           }
         } catch (err) {
-          console.error(`[settler] collectFees failed for ${transfer.transferId}`, err)
+          logBox('SWIFLO API', 'FEE COLLECTION FAILED', {
+            transferId: transfer.id,
+            onChainTransferId: transfer.transferId,
+            error: err instanceof Error ? err.message : String(err),
+          })
         }
 
         // Only after on-chain success, update DB and decrement vaultState using BigInt.
@@ -106,6 +164,11 @@ export function startSettlementScheduler(): void {
         await prisma.transfer.update({
           where: { id: transfer.id },
           data: { status: 'SETTLED', settledAt: new Date() },
+        })
+        logBox('SWIFLO API', 'TRANSFER MARKED SETTLED', {
+          transferId: transfer.id,
+          onChainTransferId: transfer.transferId,
+          databaseStatus: 'SETTLED',
         })
 
         const feeBps = BigInt(transfer.feeBps ?? 40)
@@ -122,6 +185,10 @@ export function startSettlementScheduler(): void {
             totalYieldPaid: BigInt(0),
           },
         })
+        logBox('SWIFLO API', 'VAULT STATE UPDATED', {
+          transferId: transfer.id,
+          activeAdvancesDecrementedUsdc: formatTokenUnits(advanceAmountUsdc),
+        })
 
       } catch (err) {
         if (err instanceof Error && err.message.includes('InvalidStatus')) {
@@ -131,12 +198,21 @@ export function startSettlementScheduler(): void {
               where: { id: transfer.id },
               data: { status: 'SETTLED', settledAt: new Date() },
             })
+            logBox('SWIFLO API', 'SETTLEMENT ALREADY COMPLETE AFTER INVALID STATUS', {
+              transferId: transfer.id,
+              onChainTransferId: transfer.transferId,
+              action: 'replaying chain transaction logs',
+            })
             await printTransferChainTxLogs(BigInt(transfer.transferId))
             continue
           }
         }
 
-        console.error(`[settler] Failed to settle ${transfer.id}`, err)
+        logBox('SWIFLO API', 'SETTLEMENT FAILED', {
+          transferId: transfer.id,
+          onChainTransferId: transfer.transferId,
+          error: err instanceof Error ? err.message : String(err),
+        })
       }
     }
   })

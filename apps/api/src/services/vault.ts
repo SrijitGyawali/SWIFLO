@@ -32,6 +32,7 @@ import {
 } from '@solana/spl-token'
 
 import { swifloApiChainLog } from '../lib/swifloChainLog'
+import { logBox } from '../lib/structuredLog'
 
 const RPC              = process.env.SOLANA_RPC_URL ?? 'https://api.devnet.solana.com'
 const VAULT_PROGRAM_ID = new PublicKey(process.env.LIQUIDITY_VAULT_PROGRAM_ID ?? '13BEbXJJ2aLQ6yMQA9QdtwguL2rDKdzsVBZNEbATwBhN')
@@ -240,7 +241,11 @@ export async function advanceToMTO(transferId: bigint, amount: bigint): Promise<
   const vaultBalanceResp = await connection.getTokenAccountBalance(VAULT_SWI)
   const vaultBalance = BigInt(vaultBalanceResp.value.amount)
   if (vaultBalance < amount) {
-    console.warn(`[vault] insufficient liquidity: have ${vaultBalance}, need ${amount}`)
+    logBox('SWIFLO API', 'ADVANCE TO MTO SKIPPED', {
+      reason: 'insufficient vault liquidity',
+      vaultBalance,
+      requiredAmount: amount,
+    })
     throw new Error('InsufficientVaultLiquidity')
   }
 
@@ -273,12 +278,14 @@ export async function advanceToMTO(transferId: bigint, amount: bigint): Promise<
 
   try {
     const sig = await sendAndConfirmTransaction(connection, tx, [authority], { commitment: 'confirmed' })
-    console.log(`[swiflo-api] advanceToMto on-chain: ${sig}`)
+    swifloApiChainLog('advanceToMto', sig)
     return sig
   } catch (err: any) {
     const message = String(err?.message ?? err)
     if (message.includes('InsufficientLiquidity')) {
-      console.warn('[vault] advance_to_mto skipped due to insufficient liquidity')
+      logBox('SWIFLO API', 'ADVANCE TO MTO SKIPPED', {
+        reason: 'program returned InsufficientLiquidity',
+      })
       throw new Error('InsufficientVaultLiquidity')
     }
     throw err

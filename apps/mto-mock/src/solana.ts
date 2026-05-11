@@ -4,6 +4,7 @@ import {
   sendAndConfirmTransaction,
 } from '@solana/web3.js'
 import fs from 'fs'
+import { logBox } from './structuredLog'
 
 export const connection = new Connection(
   process.env.SOLANA_RPC_URL ?? 'https://api.devnet.solana.com',
@@ -68,6 +69,10 @@ export async function confirmDisbursementOnChain(
 
   const tx = new Transaction().add(ix)
   const sig = await sendAndConfirmTransaction(connection, tx, [mtoKeypair], { commitment: 'confirmed' })
-  console.log(`[swiflo-api] confirmDisbursement on-chain: ${sig}`)
+  logBox('SWIFLO MTO', 'ON-CHAIN CONFIRM DISBURSEMENT', {
+    onChainTransferId,
+    mtoReference,
+    signature: sig,
+  })
   return sig
 }

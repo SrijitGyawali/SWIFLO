@@ -2,6 +2,7 @@ import { prisma } from '../lib/prisma'
 import { notifyMTO } from './mto'
 import { advanceToMTO } from './vault'
 import type { HeliusWebhookPayload } from '@swiflo/shared'
+import { logBox } from '../lib/structuredLog'
 
 interface TransferInitiatedEvent {
   transferId: string
@@ -61,6 +62,14 @@ export async function handleTransferInitiated(
       const advanceAmountUsdc = (transfer.amountUsdc * (10_000n - feeBps)) / 10_000n
       const advanceAmountNpr = (advanceAmountUsdc * transfer.lockedRate) / 1_000_000n
 
+      logBox('SWIFLO API', 'ADVANCE TO MTO STARTED', {
+        transferId: transfer.id,
+        onChainTransferId: transfer.transferId,
+        amountUsdcBaseUnits: advanceAmountUsdc,
+        amountNprBaseUnits: advanceAmountNpr,
+        feeBps,
+      })
+
       try {
         await advanceToMTO(transfer.transferId, advanceAmountUsdc)
       } catch (err: any) {
@@ -69,7 +78,11 @@ export async function handleTransferInitiated(
         const isInsufficientLiquidity = message.includes('InsufficientLiquidity') || logs.includes('InsufficientLiquidity')
 
         if (isInsufficientLiquidity) {
-          console.warn('[indexer] skipping advanceToMTO: vault liquidity too low')
+          logBox('SWIFLO API', 'ADVANCE TO MTO SKIPPED', {
+            transferId: transfer.id,
+            onChainTransferId: transfer.transferId,
+            reason: 'vault liquidity too low',
+          })
           return
         }
 
@@ -86,7 +99,13 @@ export async function handleTransferInitiated(
         reference: transfer.id,
       })
     }
-    run().catch(err => console.error('[indexer] advance+notify failed', err))
+    run().catch(err => {
+      logBox('SWIFLO API', 'ADVANCE AND MTO NOTIFY FAILED', {
+        transferId: transfer.id,
+        onChainTransferId: transfer.transferId,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    })
   }
 
   return { id: transfer.id }

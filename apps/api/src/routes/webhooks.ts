@@ -3,6 +3,7 @@ import { swifloApiChainLog } from '../lib/swifloChainLog'
 import { prisma } from '../lib/prisma'
 import { handleHeliusWebhook, handleTransferInitiated } from '../services/indexer'
 import type { HeliusWebhookPayload, MtoWebhookPayload } from '@swiflo/shared'
+import { logBox } from '../lib/structuredLog'
 
 export const webhookRoutes: FastifyPluginAsync = async (app) => {
   // POST /api/webhooks/helius — Solana event stream
@@ -21,8 +22,21 @@ export const webhookRoutes: FastifyPluginAsync = async (app) => {
   app.post('/api/webhooks/mto', async (req, reply) => {
     const body = req.body as MtoWebhookPayload
 
+    logBox('SWIFLO API', 'MTO CALLBACK RECEIVED', {
+      transferId: body.transferId,
+      status: body.status,
+      mtoReference: body.mtoReference,
+      solanaSignature: body.solanaSignature,
+    })
+
     const transfer = await prisma.transfer.findUnique({ where: { id: body.transferId } })
-    if (!transfer) return reply.status(404).send({ error: 'Transfer not found' })
+    if (!transfer) {
+      logBox('SWIFLO API', 'MTO CALLBACK REJECTED', {
+        transferId: body.transferId,
+        reason: 'transfer not found',
+      })
+      return reply.status(404).send({ error: 'Transfer not found' })
+    }
 
     if (body.status === 'DISBURSED') {
       await prisma.transfer.update({
@@ -37,6 +51,12 @@ export const webhookRoutes: FastifyPluginAsync = async (app) => {
       if (body.solanaSignature) {
         swifloApiChainLog('confirmDisbursement', body.solanaSignature)
       }
+
+      logBox('SWIFLO API', 'TRANSFER MARKED DISBURSED', {
+        transferId: body.transferId,
+        status: 'DISBURSED',
+        mtoReference: body.mtoReference,
+      })
 
       // Track active advances in vault
       await prisma.vaultState.upsert({
@@ -54,6 +74,10 @@ export const webhookRoutes: FastifyPluginAsync = async (app) => {
       await prisma.transfer.update({
         where: { id: body.transferId },
         data: { status: 'FAILED' },
+      })
+      logBox('SWIFLO API', 'TRANSFER MARKED FAILED', {
+        transferId: body.transferId,
+        status: body.status,
       })
 
     }
@@ -76,6 +100,15 @@ export const webhookRoutes: FastifyPluginAsync = async (app) => {
       swifloApiChainLog('initiateTransfer', body.solanaTxSignature)
     }
 
+    logBox('SWIFLO API', 'TRANSFER INITIATED WEBHOOK', {
+      onChainTransferId: body.transferId,
+      sender: body.senderPubkey,
+      recipientPhone: body.recipientPhone,
+      amountUsdcBaseUnits: body.amountUsdc,
+      lockedRate: body.lockedRate,
+      solanaSignature: body.solanaTxSignature,
+    })
+
     const { id } = await handleTransferInitiated(
       {
         transferId: body.transferId,
@@ -87,6 +120,11 @@ export const webhookRoutes: FastifyPluginAsync = async (app) => {
       },
       body.solanaTxSignature
     )
+
+    logBox('SWIFLO API', 'TRANSFER SAVED', {
+      transferId: id,
+      onChainTransferId: body.transferId,
+    })
 
     return { ok: true, transferId: id }
   })
