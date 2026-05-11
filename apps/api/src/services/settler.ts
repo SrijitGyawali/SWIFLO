@@ -35,6 +35,16 @@ function labelToInstruction(label: string): string {
   return label
 }
 
+function isInvalidStatusError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err)
+  return (
+    message.includes('InvalidStatus') ||
+    message.includes('"Custom":6003') ||
+    message.includes('Custom":6003') ||
+    message.includes('custom program error: 0x1773')
+  )
+}
+
 /** When DB catches up to chain without submitting txs, print the same log lines from RPC history. */
 async function printTransferChainTxLogs(onChainTransferId: bigint): Promise<void> {
   try {
@@ -191,7 +201,7 @@ export function startSettlementScheduler(): void {
         })
 
       } catch (err) {
-        if (err instanceof Error && err.message.includes('InvalidStatus')) {
+        if (isInvalidStatusError(err)) {
           const onChainStatus = await getOnChainTransferStatus(transfer.transferId)
           if (onChainStatus === 'SETTLED') {
             await prisma.transfer.update({
@@ -206,6 +216,15 @@ export function startSettlementScheduler(): void {
             await printTransferChainTxLogs(BigInt(transfer.transferId))
             continue
           }
+
+          logBox('SWIFLO API', 'SETTLEMENT STATUS MISMATCH', {
+            transferId: transfer.id,
+            onChainTransferId: transfer.transferId,
+            databaseStatus: transfer.status,
+            onChainStatus,
+            action: 'settlement skipped until chain status is DISBURSED',
+          })
+          continue
         }
 
         logBox('SWIFLO API', 'SETTLEMENT FAILED', {
