@@ -159,6 +159,13 @@ export function Navbar() {
     login({ loginMethods: ['email', 'sms'] })
   }
 
+  const handleReconnect = async () => {
+    if (!ready) return
+    setSidebarOpen(false)
+    await logout()
+    login({ loginMethods: ['email', 'sms'] })
+  }
+
   const navLinks: NavLink[] = [
     { href: '/explorer', label: 'Explorer', Icon: CompassIcon },
     { href: '/fund',     label: 'Get USDC', Icon: UsdcIcon    },
@@ -242,6 +249,14 @@ export function Navbar() {
               <span className="font-mono text-xs font-semibold text-[#0A0F1F]">
                 {`${address.slice(0, 4)}...${address.slice(-4)}`}
               </span>
+            </button>
+          ) : ready && authenticated ? (
+            <button
+              onClick={handleReconnect}
+              className="inline-flex items-center gap-2 rounded-full bg-[#1A2BE0] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_-10px_rgba(26,43,224,0.7)] transition-all hover:-translate-y-0.5 hover:bg-[#2236E8] hover:shadow-[0_16px_30px_-12px_rgba(26,43,224,0.8)]"
+            >
+              <NavWalletIcon className="h-4 w-4" />
+              Reconnect Wallet
             </button>
           ) : (
             <button
@@ -332,6 +347,17 @@ export function Navbar() {
                       {`${address.slice(0, 6)}...${address.slice(-4)}`}
                     </span>
                     <span className="ml-auto text-[11px] font-semibold text-[#5A5F7A]">View</span>
+                  </button>
+                ) : ready && authenticated ? (
+                  <button
+                    onClick={() => {
+                      setMobileOpen(false)
+                      void handleReconnect()
+                    }}
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1A2BE0] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-10px_rgba(26,43,224,0.7)] transition-colors hover:bg-[#2236E8]"
+                  >
+                    <NavWalletIcon className="h-4 w-4" />
+                    Reconnect Wallet
                   </button>
                 ) : (
                   <button
@@ -476,4 +502,3 @@ function NavWalletIcon({ className = '' }: { className?: string }) {
     </svg>
   )
 }
-
