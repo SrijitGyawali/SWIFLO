@@ -159,11 +159,11 @@ export function Navbar() {
     login({ loginMethods: ['email', 'sms'] })
   }
 
-  const handleReconnect = async () => {
+  const handleResetWalletSession = async () => {
     if (!ready) return
     setSidebarOpen(false)
     await logout()
-    login({ loginMethods: ['email', 'sms'] })
+    window.location.reload()
   }
 
   const navLinks: NavLink[] = [
@@ -252,11 +252,11 @@ export function Navbar() {
             </button>
           ) : ready && authenticated ? (
             <button
-              onClick={handleReconnect}
+              onClick={handleResetWalletSession}
               className="inline-flex items-center gap-2 rounded-full bg-[#1A2BE0] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_-10px_rgba(26,43,224,0.7)] transition-all hover:-translate-y-0.5 hover:bg-[#2236E8] hover:shadow-[0_16px_30px_-12px_rgba(26,43,224,0.8)]"
             >
               <NavWalletIcon className="h-4 w-4" />
-              Reconnect Wallet
+              Reset Wallet
             </button>
           ) : (
             <button
@@ -352,12 +352,12 @@ export function Navbar() {
                   <button
                     onClick={() => {
                       setMobileOpen(false)
-                      void handleReconnect()
+                      void handleResetWalletSession()
                     }}
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1A2BE0] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-10px_rgba(26,43,224,0.7)] transition-colors hover:bg-[#2236E8]"
                   >
                     <NavWalletIcon className="h-4 w-4" />
-                    Reconnect Wallet
+                    Reset Wallet
                   </button>
                 ) : (
                   <button

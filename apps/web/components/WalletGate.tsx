@@ -19,9 +19,9 @@ export function WalletGate({
   const address = wallets[0]?.address
 
   const loginWithEmail = () => login({ loginMethods: ['email', 'sms'] })
-  const reconnect = async () => {
+  const resetWalletSession = async () => {
     await logout()
-    loginWithEmail()
+    window.location.reload()
   }
 
   if (!ready) {
@@ -81,14 +81,14 @@ export function WalletGate({
           </div>
           <h1 className="relative text-3xl font-extrabold tracking-tight text-[#07133A]">Wallet setup did not finish</h1>
           <p className="relative mx-auto mt-3 max-w-sm text-sm font-semibold leading-relaxed text-[#6F7DA8]">
-            You are signed in, but Privy has not returned a Solana wallet address yet. Reconnect once to finish wallet setup.
+            You are signed in, but Privy has not returned a Solana wallet address yet. Reset the session, then connect again.
           </p>
           <button
             type="button"
-            onClick={reconnect}
+            onClick={resetWalletSession}
             className="relative mt-8 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#2F5BFF] px-6 py-4 text-base font-extrabold text-white shadow-[0_18px_45px_-22px_rgba(47,91,255,0.9)] transition-all hover:-translate-y-0.5 hover:bg-[#254DF0] sm:w-auto"
           >
-            Reconnect wallet
+            Reset wallet session
             <ArrowRightIcon className="h-5 w-5" />
           </button>
         </motion.section>

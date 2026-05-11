@@ -15,7 +15,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         loginMethods: ['email', 'sms'],
         embeddedWallets: {
           createOnLogin: 'users-without-wallets',
-          showWalletUIs: false,
+          showWalletUIs: true,
           noPromptOnSignature: true,
         },
       }}
