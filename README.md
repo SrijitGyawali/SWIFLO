@@ -77,6 +77,8 @@ At $100M/month — a fraction of the $8B+ Gulf-to-Nepal annual remittance market
 
 ## Solution Architecture
 
+<img src="./docs/images/architecture-diagram.png" alt="Swiflo architecture diagram" />
+
 ```
 Gulf Worker (sender)                          Nepal (recipient)
 ┌─────────────────────┐                      ┌──────────────────────┐
