@@ -168,6 +168,11 @@ export function Navbar() {
     logout()
   }
 
+  const handleLogin = () => {
+    if (!ready) return
+    login({ loginMethods: ['email', 'sms'] })
+  }
+
   const navLinks: NavLink[] = [
     { href: '/explorer', label: 'Explorer', Icon: CompassIcon },
     { href: '/fund',     label: 'Get USDC', Icon: UsdcIcon    },
@@ -238,32 +243,29 @@ export function Navbar() {
             Try Widget
           </Link>
 
-          {ready && (
-            authenticated ? (
-              address && (
-                <button
-                  type="button"
-                  onClick={() => setSidebarOpen(true)}
-                  title="Open wallet"
-                  className="group inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/70 py-1.5 pl-1.5 pr-3.5 shadow-[0_8px_24px_-12px_rgba(11,11,20,0.18),inset_0_1px_0_rgba(255,255,255,0.6)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white/85 hover:shadow-[0_12px_28px_-14px_rgba(11,11,20,0.22)]"
-                >
-                  <span className="relative flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#2D45F2] via-[#5B2CFF] to-[#22D3EE] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]">
-                    <span className="absolute -bottom-1 -right-1 h-2.5 w-2.5 rounded-full bg-[#10B981] ring-2 ring-white" />
-                  </span>
-                  <span className="font-mono text-xs font-semibold text-[#0A0F1F]">
-                    {`${address.slice(0, 4)}...${address.slice(-4)}`}
-                  </span>
-                </button>
-              )
-            ) : (
-              <button
-                onClick={login}
-                className="inline-flex items-center gap-2 rounded-full bg-[#1A2BE0] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_-10px_rgba(26,43,224,0.7)] transition-all hover:-translate-y-0.5 hover:bg-[#2236E8] hover:shadow-[0_16px_30px_-12px_rgba(26,43,224,0.8)]"
-              >
-                <NavWalletIcon className="h-4 w-4" />
-                Connect Wallet
-              </button>
-            )
+          {ready && authenticated && address ? (
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              title="Open wallet"
+              className="group inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/70 py-1.5 pl-1.5 pr-3.5 shadow-[0_8px_24px_-12px_rgba(11,11,20,0.18),inset_0_1px_0_rgba(255,255,255,0.6)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white/85 hover:shadow-[0_12px_28px_-14px_rgba(11,11,20,0.22)]"
+            >
+              <span className="relative flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#2D45F2] via-[#5B2CFF] to-[#22D3EE] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]">
+                <span className="absolute -bottom-1 -right-1 h-2.5 w-2.5 rounded-full bg-[#10B981] ring-2 ring-white" />
+              </span>
+              <span className="font-mono text-xs font-semibold text-[#0A0F1F]">
+                {`${address.slice(0, 4)}...${address.slice(-4)}`}
+              </span>
+            </button>
+          ) : (
+            <button
+              onClick={handleLogin}
+              disabled={!ready}
+              className="inline-flex items-center gap-2 rounded-full bg-[#1A2BE0] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_-10px_rgba(26,43,224,0.7)] transition-all hover:-translate-y-0.5 hover:bg-[#2236E8] hover:shadow-[0_16px_30px_-12px_rgba(26,43,224,0.8)] disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0"
+            >
+              <NavWalletIcon className="h-4 w-4" />
+              {ready ? 'Connect Wallet' : 'Loading Wallet'}
+            </button>
           )}
         </div>
       </nav>
@@ -329,37 +331,34 @@ export function Navbar() {
                   Try Widget
                 </Link>
 
-                {ready && (
-                  authenticated ? (
-                    address && (
-                      <button
-                        onClick={() => {
-                          setMobileOpen(false)
-                          setSidebarOpen(true)
-                        }}
-                        className="inline-flex items-center justify-center gap-2 rounded-full border border-[#0A0F1F]/10 bg-white py-3.5 pl-3 pr-5 shadow-[0_6px_22px_-12px_rgba(11,11,20,0.18)] transition-colors hover:bg-[#F4F5FA]"
-                      >
-                        <span className="relative flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#2D45F2] via-[#5B2CFF] to-[#22D3EE]">
-                          <span className="absolute -bottom-1 -right-1 h-2.5 w-2.5 rounded-full bg-[#10B981] ring-2 ring-white" />
-                        </span>
-                        <span className="font-mono text-xs font-semibold text-[#0A0F1F]">
-                          {`${address.slice(0, 6)}...${address.slice(-4)}`}
-                        </span>
-                        <span className="ml-auto text-[11px] font-semibold text-[#5A5F7A]">View</span>
-                      </button>
-                    )
-                  ) : (
-                    <button
-                      onClick={() => {
-                        setMobileOpen(false)
-                        login()
-                      }}
-                      className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1A2BE0] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-10px_rgba(26,43,224,0.7)] transition-colors hover:bg-[#2236E8]"
-                    >
-                      <NavWalletIcon className="h-4 w-4" />
-                      Connect Wallet
-                    </button>
-                  )
+                {ready && authenticated && address ? (
+                  <button
+                    onClick={() => {
+                      setMobileOpen(false)
+                      setSidebarOpen(true)
+                    }}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-[#0A0F1F]/10 bg-white py-3.5 pl-3 pr-5 shadow-[0_6px_22px_-12px_rgba(11,11,20,0.18)] transition-colors hover:bg-[#F4F5FA]"
+                  >
+                    <span className="relative flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#2D45F2] via-[#5B2CFF] to-[#22D3EE]">
+                      <span className="absolute -bottom-1 -right-1 h-2.5 w-2.5 rounded-full bg-[#10B981] ring-2 ring-white" />
+                    </span>
+                    <span className="font-mono text-xs font-semibold text-[#0A0F1F]">
+                      {`${address.slice(0, 6)}...${address.slice(-4)}`}
+                    </span>
+                    <span className="ml-auto text-[11px] font-semibold text-[#5A5F7A]">View</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setMobileOpen(false)
+                      handleLogin()
+                    }}
+                    disabled={!ready}
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1A2BE0] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-10px_rgba(26,43,224,0.7)] transition-colors hover:bg-[#2236E8] disabled:cursor-wait disabled:opacity-70"
+                  >
+                    <NavWalletIcon className="h-4 w-4" />
+                    {ready ? 'Connect Wallet' : 'Loading Wallet'}
+                  </button>
                 )}
               </div>
             </div>
@@ -491,4 +490,3 @@ function NavWalletIcon({ className = '' }: { className?: string }) {
     </svg>
   )
 }
-

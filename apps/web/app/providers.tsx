@@ -12,7 +12,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           accentColor: '#5865F2',
           walletChainType: 'solana-only',
         },
-        loginMethods: ['email', 'sms'],
+        loginMethods: ['email', 'sms', 'wallet'],
         embeddedWallets: {
           createOnLogin: 'all-users',
           showWalletUIs: false,
